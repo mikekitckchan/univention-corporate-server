@@ -52,7 +52,7 @@ import functools
 import threading
 from errno import ESRCH
 from optparse import OptionParser
-from six.moves.urllib_parse import urlparse, urlunsplit
+from six.moves.urllib_parse import urlparse, urlunsplit, urlencode
 from six.moves.http_client import REQUEST_ENTITY_TOO_LARGE, LENGTH_REQUIRED, NOT_FOUND, BAD_REQUEST, UNAUTHORIZED, SERVICE_UNAVAILABLE
 
 import six
@@ -388,6 +388,10 @@ class User(object):
 		except ValueError:  # no SAML, no client
 			return 0
 
+	@property
+	def is_external_user(self):
+		return self.is_saml_user() and self.saml.issuer != ucr.get('umc/saml/idp-server')
+
 	def is_saml_user(self):
 		# self.saml indicates that it was originally a
 		# saml user. but it may have upgraded and got a
@@ -416,13 +420,15 @@ class User(object):
 
 class SAMLUser(object):
 
-	__slots__ = ('message', 'username', 'not_on_or_after', 'name_id')
+	__slots__ = ('message', 'username', 'not_on_or_after', 'name_id', 'issuer', 'attributes')
 
 	def __init__(self, response, message):
 		self.not_on_or_after = response.not_on_or_after
 		self.name_id = code(response.name_id)
 		self.message = message
 		self.username = u''.join(response.ava['uid'])
+		self.attributes = response.ava.copy()
+		self.issuer = response.issuer()
 
 	@property
 	def time_remaining(self):
@@ -597,9 +603,14 @@ class SamlError(UMC_HTTPError):
 	def no_identity_provider(self):
 		return self._('There is a configuration error in the service provider: No identity provider are set up for use.')
 
-	@error  # TODO: multiple choices redirection status
-	def multiple_identity_provider(self, idps, idp_query_param):
-		return self._('Could not pick an identity provider. You can specify one via the query string parameter %(param)r from %(idps)r') % {'param': idp_query_param, 'idps': idps}
+	@error(status=400)  # 300 is more correct, but firefox uses the first link and redirects
+	def multiple_identity_provider(self, idps, idp_query_param, base_uri):
+		uris = [base_uri + ('&', '?')[urlparse(base_uri).query == ''] + urlencode({
+			idp_query_param: idp
+		}) for idp in idps]
+		cherrypy.response.headers['Location'] = ', '.join(uris)
+		raise HTTPRedirect(uris, 300)  # FIXME
+		return self._('Could not pick an identity provider. Choose from: %s') % ('\n'.join(uris),)
 
 
 class Ressource(object):
@@ -806,7 +817,7 @@ class CPgeneric(Ressource):
 
 		user = self.get_user()
 		client = UMCP_Dispatcher.sessions.get(sessionid)
-		if user and (user.password or user.saml) and (not client or not client.authenticated):
+		if user and not user.is_external_user and (user.password or user.saml) and (not client or not client.authenticated):
 			auth = Request('AUTH')
 			auth.body = {
 				'username': user.username,
@@ -894,6 +905,7 @@ class CPGet(CPgeneric):
 			raise UMC_HTTPError(UNAUTHORIZED)
 		info['username'] = user.username
 		info['auth_type'] = user.saml and 'SAML'
+		info['attributes'] = user.saml and user.saml.attributes  # TODO: create a own URL for this?
 		info['remaining'] = user.time_remaining
 		info['validity'] = user.session_validity
 		return json.dumps({"status": 200, "result": info, "message": ""}).encode('ASCII')
@@ -1057,7 +1069,7 @@ class CPAuth(CPgeneric):
 		location = urlparse(kwargs.get('return', '/univention/management/'))
 		if location.path.startswith('//'):
 			location = urlparse('')
-		location = urlunsplit((None, None, location.path, location.query, location.fragment))
+		location = urlunsplit(('', '', location.path, location.query, location.fragment))
 		cherrypy.response.status = 303
 		cherrypy.response.headers['Location'] = location
 
@@ -1173,7 +1185,7 @@ class SAML(Ressource):
 		self.configfile = '/usr/share/univention-management-console/saml/sp.py'
 		self.__sp = None
 
-		self.idp_query_param = "IdpQuery"
+		self.idp_query_param = "idp"
 		self.bindings = [BINDING_HTTP_REDIRECT, BINDING_HTTP_POST, BINDING_HTTP_ARTIFACT]
 
 		self.outstanding_queries = {}
@@ -1206,7 +1218,7 @@ class SAML(Ressource):
 		binding, message, relay_state = self._get_saml_message()
 
 		if message is None:
-			return self.do_single_sign_on(relay_state=kwargs.get('location', '/univention/management/'))
+			return self.do_single_sign_on(relay_state=kwargs.get('location', '/univention/management/'), use_ucs_identity_provider='external' not in kwargs)
 
 		acs = self.attribute_consuming_service
 		if relay_state == 'iframe-passive':
@@ -1216,7 +1228,7 @@ class SAML(Ressource):
 	@cherrypy.expose
 	def iframe(self, *args, **kwargs):
 		cherrypy.request.uri = cherrypy.request.uri.replace('/iframe', '')
-		return self.do_single_sign_on(is_passive='true', relay_state='iframe-passive')
+		return self.do_single_sign_on(is_passive='true', relay_state='iframe-passive', use_ucs_identity_provider=True)
 
 	def attribute_consuming_service(self, binding, message, relay_state):
 		response = self.acs(message, binding)
@@ -1355,7 +1367,7 @@ class SAML(Ressource):
 
 			Returns (binding, http-arguments)
 		"""
-		identity_provider_entity_id = self.select_identity_provider()
+		identity_provider_entity_id = self.select_identity_provider(use_ucs_identity_provider=kwargs.pop('use_ucs_identity_provider', True))
 		binding, destination = self.get_identity_provider_destination(identity_provider_entity_id)
 
 		relay_state = kwargs.pop('relay_state', None)
@@ -1367,7 +1379,7 @@ class SAML(Ressource):
 		self.outstanding_queries[sid] = service_provider_url  # cherrypy.request.uri  # TODO: shouldn't this contain service_provider_url?
 		return binding, http_args
 
-	def select_identity_provider(self):
+	def select_identity_provider(self, use_ucs_identity_provider=True):
 		"""Select an identity provider based on the available identity providers.
 			If multiple IDP's are set up the client might have specified one in the query string.
 			Otherwise an error is raised where the user can choose one.
@@ -1383,7 +1395,11 @@ class SAML(Ressource):
 			return list(idps.keys())[0]
 		if not idps:
 			raise SamlError().no_identity_provider()
-		raise SamlError().multiple_identity_provider(list(idps.keys()), self.idp_query_param)
+		if use_ucs_identity_provider:
+			for key in idps:
+				if key == ucr.get('umc/saml/idp-server'):
+					return key
+		raise SamlError().multiple_identity_provider(list(idps.keys()), self.idp_query_param, cherrypy.request.uri)
 
 	def get_identity_provider_destination(self, entity_id):
 		"""Get the destination (with SAML binding) of the specified entity_id.
@@ -1421,7 +1437,7 @@ class SAML(Ressource):
 			cherrypy.response.headers[key] = value
 
 		if binding in (BINDING_HTTP_ARTIFACT, BINDING_HTTP_REDIRECT):
-			cherrypy.response.status = 303 if cherrypy.request.protocol >= (1, 1) and cherrypy.request.method == 'POST' else 302
+			cherrypy.response.status = http_args.get('status', 303 if cherrypy.request.protocol >= (1, 1) and cherrypy.request.method == 'POST' else 302)
 			if not body:
 				raise HTTPRedirect(cherrypy.response.headers['Location'], status=cherrypy.response.status)
 
