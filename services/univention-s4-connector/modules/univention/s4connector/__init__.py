@@ -761,6 +761,9 @@ class ucs(object):
 		try:
 			with open(filename, 'rb') as fob:
 				(dn, new, old, old_dn) = pickle.load(fob, encoding='bytes')
+				dn = dn.decode('utf-8')
+				if old_dn is not None:
+					old_dn = old_dn.decode('utf-8')
 		except IOError:
 			return True  # file not found so there's nothing to sync
 		except (pickle.UnpicklingError, EOFError) as e:
@@ -1102,6 +1105,9 @@ class ucs(object):
 					try:
 						with open(filename, 'rb') as fob:
 							(dn, new, old, old_dn) = pickle.load(fob, encoding='bytes')
+							dn = dn.decode('utf-8')
+							if old_dn is not None:
+								old_dn = old_dn.decode('utf-8')
 					except IOError:
 						continue  # file not found so there's nothing to sync
 					except (pickle.UnpicklingError, EOFError) as e:
