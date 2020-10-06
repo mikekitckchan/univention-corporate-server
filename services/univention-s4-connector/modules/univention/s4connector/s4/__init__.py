@@ -620,6 +620,8 @@ def compatible_addlist(list):
 
 
 def compatible_modstring(string):
+	if six.PY3:
+		return string
 	if hasattr(string, 'decode') and not isinstance(string, unicode):
 		string = string.decode('latin1')
 	if hasattr(string, 'encode'):
