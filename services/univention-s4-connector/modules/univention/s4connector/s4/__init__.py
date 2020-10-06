@@ -847,12 +847,7 @@ class s4(univention.s4connector.ucs):
 
 			ud.debug(ud.LDAP, ud.PROCESS, 'Internal group membership cache was created')
 
-		try:
-			self.s4_sid = univention.s4connector.s4.decode_sid(
-				self.s4_search_ext_s(s4_ldap_base, ldap.SCOPE_BASE, 'objectclass=domain', ['objectSid'])[0][1]['objectSid'][0])
-		except Exception as msg:
-			print("Failed to get SID from S4: %s" % msg)
-			sys.exit(1)
+		self.s4_sid = decode_sid(self.s4_search_ext_s(s4_ldap_base, ldap.SCOPE_BASE, 'objectclass=domain', ['objectSid'])[0][1]['objectSid'][0].decode('ISO8859-1'))
 
 	def s4_search_ext_s(self, *args, **kwargs):
 		return fix_dn_in_search(self.lo_s4.lo.search_ext_s(*args, **kwargs))
