@@ -2342,7 +2342,7 @@ class s4(univention.s4connector.ucs):
 			else:
 				# objectClass
 				if self.property[property_type].con_create_objectclass:
-					addlist.append(('objectClass', self.property[property_type].con_create_objectclass))
+					addlist.append(('objectClass', [x.encode('UTF-8') for x in self.property[property_type].con_create_objectclass]))
 
 				# fixed Attributes
 				if self.property[property_type].con_create_attributes:
@@ -2354,9 +2354,7 @@ class s4(univention.s4connector.ucs):
 				if hasattr(self.property[property_type], 'attributes') and self.property[property_type].attributes is not None:
 					for attr, value in object['attributes'].items():
 						for attribute in self.property[property_type].attributes.keys():
-							if self.property[property_type].attributes[attribute].con_attribute == attr:
-								addlist.append((attr, value))
-							if self.property[property_type].attributes[attribute].con_other_attribute == attr:
+							if attr in (self.property[property_type].attributes[attribute].con_attribute, self.property[property_type].attributes[attribute].con_other_attribute):
 								addlist.append((attr, value))
 				if hasattr(self.property[property_type], 'con_create_extenstions') and self.property[property_type].con_create_extenstions is not None:
 					for f in self.property[property_type].con_create_extenstions:
