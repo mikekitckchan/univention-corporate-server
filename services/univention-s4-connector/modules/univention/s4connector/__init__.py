@@ -771,6 +771,11 @@ class ucs(object):
 			self._save_rejected_ucs(filename, 'unknown', resync=False, reason='broken file')
 			return False
 
+		if dn:
+			dn = dn.decode('UTF-8')
+		if old_dn:
+			old_dn = old_dn.decode('UTF-8')
+
 		if dn == 'cn=Subschema':
 			return True
 
@@ -836,8 +841,8 @@ class ucs(object):
 				if old_dn and not old_dn == dn:
 					ud.debug(ud.LDAP, ud.INFO, "__sync_file_from_ucs: object was moved")
 					# object was moved
-					new_object = {'dn': unicode(dn), 'modtype': change_type, 'attributes': new}
-					old_object = {'dn': unicode(old_dn), 'modtype': change_type, 'attributes': old}
+					new_object = {'dn': dn, 'modtype': change_type, 'attributes': new}
+					old_object = {'dn': old_dn, 'modtype': change_type, 'attributes': old}
 					if self._ignore_object(key, new_object):
 						# moved into ignored subtree, delete:
 						ud.debug(ud.LDAP, ud.INFO, "__sync_file_from_ucs: moved object is now ignored, will delete it")
@@ -850,7 +855,7 @@ class ucs(object):
 						change_type = 'add'
 
 			else:
-				object = {'dn': unicode(dn), 'modtype': 'modify', 'attributes': new}
+				object = {'dn': dn, 'modtype': 'modify', 'attributes': new}
 				try:
 					if self._ignore_object(key, object):
 						ud.debug(ud.LDAP, ud.INFO, "__sync_file_from_ucs: new object is ignored, nothing to do")
@@ -876,14 +881,14 @@ class ucs(object):
 		if key:
 			if change_type == 'delete':
 				if old_dn:
-					object = {'dn': unicode(old_dn), 'modtype': change_type, 'attributes': old}
+					object = {'dn': old_dn, 'modtype': change_type, 'attributes': old}
 				else:
-					object = {'dn': unicode(dn), 'modtype': change_type, 'attributes': old}
+					object = {'dn': dn, 'modtype': change_type, 'attributes': old}
 			else:
-				object = {'dn': unicode(dn), 'modtype': change_type, 'attributes': new}
+				object = {'dn': dn, 'modtype': change_type, 'attributes': new}
 
 			if change_type == 'modify' and old_dn:
-				object['olddn'] = unicode(old_dn)  # needed for correct samaccount-mapping
+				object['olddn'] = old_dn  # needed for correct samaccount-mapping
 
 			if not self._ignore_object(key, object) or ignore_subtree_match:
 				pre_mapped_ucs_dn = object['dn']
@@ -892,7 +897,7 @@ class ucs(object):
 				if not self._ignore_object(key, object) or ignore_subtree_match:
 					ud.debug(ud.LDAP, ud.INFO, "__sync_file_from_ucs: finished mapping")
 					try:
-						if ((old_dn and not self.sync_from_ucs(key, mapped_object, pre_mapped_ucs_dn, unicode(old_dn), old, new)) or (not old_dn and not self.sync_from_ucs(key, mapped_object, pre_mapped_ucs_dn, old_dn, old, new))):
+						if ((old_dn and not self.sync_from_ucs(key, mapped_object, pre_mapped_ucs_dn, old_dn, old, new)) or (not old_dn and not self.sync_from_ucs(key, mapped_object, pre_mapped_ucs_dn, old_dn, old, new))):
 							self._save_rejected_ucs(filename, dn)
 							return False
 						else:
@@ -1658,7 +1663,7 @@ class ucs(object):
 			attribute = filter[:pos].lower()
 			if not attribute:
 				raise ValueError('missing attribute in filter: %s' % filter)
-			value = filter[pos + 1:]
+			value = filter[pos + 1:].encode('UTF-8')
 
 			if attribute.endswith(':1.2.840.113556.1.4.803:'):
 				# bitwise filter
@@ -1877,7 +1882,7 @@ class ucs(object):
 		# other mapping
 		if object_type == 'ucs':
 			if key in self.property:
-				for attribute, values in object['attributes'].items():
+				for attribute in list(object['attributes']):
 					if self.property[key].attributes:
 						for attr_key in self.property[key].attributes.keys():
 							if attribute.lower() == self.property[key].attributes[attr_key].ldap_attribute.lower():
@@ -1887,6 +1892,7 @@ class ucs(object):
 										object_out['attributes'][self.property[key].attributes[attr_key].con_attribute] = self.property[key].attributes[attr_key].mapping[0](self, key, object)
 								# direct mapping
 								else:
+									values = object['attributes'][attribute]
 									if self.property[key].attributes[attr_key].con_other_attribute:
 										object_out['attributes'][self.property[key].attributes[attr_key].con_attribute] = [values[0]]
 										object_out['attributes'][self.property[key].attributes[attr_key].con_other_attribute] = values[1:]
@@ -1913,6 +1919,7 @@ class ucs(object):
 									if self.property[key].post_attributes[attr_key].mapping[0]:
 										object_out['attributes'][self.property[key].post_attributes[attr_key].con_attribute] = self.property[key].post_attributes[attr_key].mapping[0](self, key, object)
 								else:
+									values = object['attributes'][attribute]
 									if self.property[key].post_attributes[attr_key].con_other_attribute:
 										object_out['attributes'][self.property[key].post_attributes[attr_key].con_attribute] = [values[0]]
 										object_out['attributes'][self.property[key].post_attributes[attr_key].con_other_attribute] = values[1:]
@@ -1923,7 +1930,7 @@ class ucs(object):
 			if key in self.property:
 				# Filter out Configuration objects w/o DN
 				if object['dn'] is not None:
-					for attribute, values in object['attributes'].items():
+					for attribute in list(object['attributes']):
 						if self.property[key].attributes:
 							for attr_key in self.property[key].attributes.keys():
 								if attribute.lower() == self.property[key].attributes[attr_key].con_attribute.lower():
@@ -1933,6 +1940,7 @@ class ucs(object):
 										if self.property[key].attributes[attr_key].mapping[1]:
 											object_out['attributes'][self.property[key].attributes[attr_key].ldap_attribute] = self.property[key].attributes[attr_key].mapping[1](self, key, object)
 									else:
+										values = object['attributes'][attribute]
 										if self.property[key].attributes[attr_key].con_other_attribute and object['attributes'].get(self.property[key].attributes[attr_key].con_other_attribute):
 											object_out['attributes'][self.property[key].attributes[attr_key].ldap_attribute] = values + \
 												object['attributes'].get(self.property[key].attributes[attr_key].con_other_attribute)
@@ -1959,6 +1967,7 @@ class ucs(object):
 										if self.property[key].post_attributes[attr_key].mapping[1]:
 											object_out['attributes'][self.property[key].post_attributes[attr_key].ldap_attribute] = self.property[key].post_attributes[attr_key].mapping[1](self, key, object)
 									else:
+										values = object['attributes'][attribute]
 										if self.property[key].post_attributes[attr_key].con_other_attribute and object['attributes'].get(self.property[key].post_attributes[attr_key].con_other_attribute):
 											object_out['attributes'][self.property[key].post_attributes[attr_key].ldap_attribute] = values + \
 												object['attributes'].get(self.property[key].post_attributes[attr_key].con_other_attribute)
@@ -1969,7 +1978,6 @@ class ucs(object):
 
 	def identify_udm_object(self, dn, attrs):
 		"""Get the type of the specified UCS object"""
-		dn = unicode(dn)
 		for k in self.property.keys():
 			if self.modules[k].identify(dn, attrs):
 				return k

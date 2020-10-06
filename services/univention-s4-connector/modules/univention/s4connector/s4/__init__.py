@@ -34,6 +34,7 @@
 
 from __future__ import print_function
 
+import base64
 import copy
 import re
 import sys
@@ -49,9 +50,8 @@ import ldap
 from ldap.controls import LDAPControl
 from ldap.controls import SimplePagedResultsControl
 from ldap.filter import escape_filter_chars
-from samba.dcerpc import security
 from samba.ndr import ndr_pack, ndr_unpack
-from samba.dcerpc import misc
+from samba.dcerpc import misc, security
 
 import univention.uldap
 import univention.s4connector
@@ -127,6 +127,7 @@ def add_primary_group_to_addlist(s4connector, property_type, object, addlist, se
 	if gidNumber:
 		if isinstance(gidNumber, list):
 			gidNumber = gidNumber[0]
+		gidNumber = gidNumber.decode('UTF-8')
 		ud.debug(ud.LDAP, ud.INFO, 'add_primary_group_to_addlist: gidNumber: %s' % gidNumber)
 
 		ucs_group_filter = format_escaped('(&(objectClass=univentionGroup)(gidNumber={0!e}))', gidNumber)
@@ -277,10 +278,10 @@ def samaccountname_dn_mapping(s4connector, given_object, dn_mapping_stored, ucso
 
 	if object['dn'] is not None:
 		if 'sAMAccountName' in object['attributes']:
-			samaccountname = object['attributes']['sAMAccountName'][0]
+			samaccountname = object['attributes']['sAMAccountName'][0].decode('UTF-8')
 		if dn_attr:
 			try:
-				dn_attr_vals = [value for key, value in object['attributes'].items() if dn_attr.lower() == key.lower()][0]
+				dn_attr_vals = [value.decode('UTF-8') for key, value in object['attributes'].items() if dn_attr.lower() == key.lower()][0]
 			except IndexError:
 				pass
 			else:
@@ -304,7 +305,7 @@ def samaccountname_dn_mapping(s4connector, given_object, dn_mapping_stored, ucso
 				rdn_value = unicode(rdn_value_utf8)
 				t_samaccount = u''
 				if object.get('attributes'):
-					t_samaccount = object['attributes'].get('sAMAccountName', [u''])[0]
+					t_samaccount = object['attributes'].get('sAMAccountName', [u''])[0].decode('UTF-8')
 				if rdn_value.lower() == t_samaccount.lower():
 					ud.debug(ud.LDAP, ud.INFO, "samaccount_dn_mapping: modtype is delete, use the premapped DN: %s" % object[dn_key])
 					return True
@@ -338,7 +339,7 @@ def samaccountname_dn_mapping(s4connector, given_object, dn_mapping_stored, ucso
 			(_fst_rdn_attribute_utf8, fst_rdn_value_utf8, _flags) = exploded_dn[0][0]
 
 			if ucsobject and object.get('attributes') and object['attributes'].get(ucsattrib):
-				value = object['attributes'][ucsattrib][0]
+				value = object['attributes'][ucsattrib][0].decode('UTF-8')
 			else:
 				value = unicode(fst_rdn_value_utf8)
 
@@ -370,7 +371,7 @@ def samaccountname_dn_mapping(s4connector, given_object, dn_mapping_stored, ucso
 				if dn_attr and dn_attr_val:
 					# also look for dn attr (needed to detect modrdn)
 					filter_parts_s4.append(format_escaped('({0}={1!e})', dn_attr, dn_attr_val))
-				filter_s4 = unicode_to_utf8(u'(&{})'.format(''.join(filter_parts_s4)))
+				filter_s4 = u'(&{})'.format(''.join(filter_parts_s4))
 				ud.debug(ud.LDAP, ud.INFO, "samaccount_dn_mapping: search in s4 for %s" % filter_s4)
 				result = s4connector.s4_search_ext_s(s4connector.lo_s4.base, ldap.SCOPE_SUBTREE, filter_s4, ['sAMAccountName'])
 
@@ -400,8 +401,8 @@ def samaccountname_dn_mapping(s4connector, given_object, dn_mapping_stored, ucso
 						search_dn = object['deleted_dn']
 					try:
 						samaccountname_filter = format_escaped('(objectClass={0!e})', ocs4)
-						samaccountname_search_result = s4connector.s4_search_ext_s(compatible_modstring(search_dn), ldap.SCOPE_BASE, samaccountname_filter, ['sAMAccountName'])
-						samaccountname_attribute = samaccountname_search_result[0][1]['sAMAccountName'][0]
+						samaccountname_search_result = s4connector.s4_search_ext_s(search_dn, ldap.SCOPE_BASE, samaccountname_filter, ['sAMAccountName'])
+						samaccountname_attribute = samaccountname_search_result[0][1]['sAMAccountName'][0].decode('UTF-8')
 						samaccountname = encode_attrib(samaccountname_attribute)
 						ud.debug(ud.LDAP, ud.INFO, "samaccount_dn_mapping: got samaccountname from S4")
 					except ldap.NO_SUCH_OBJECT:  # S4 may need time
@@ -482,29 +483,7 @@ def dc_dn_mapping(s4connector, given_object, dn_mapping_stored, isUCSobject):
 
 
 def decode_sid(value):
-	# SID in S4
-	#
-	#   | Byte 1         | Byte 2-7           | Byte 9-12                | Byte 13-16 |
-	#   ----------------------------------------------------------------------------------------------------------------
-	#   | Der erste Wert | Gibt die Laenge    | Hier sind jetzt          | siehe 9-12 |
-	#   | der SID, also  | des restlichen     | die eiegntlichen         |            |
-	#   | der Teil nach  | Strings an, da die | SID Daten.               |            |
-	#   | S-             | SID immer relativ  | In einem int Wert        |            |
-	#   |                | kurz ist, meistens | sind die Werte           |            |
-	#   |                | nur das 2. Byte    | Hexadezimal gespeichert. |            |
-	#
-	sid = 'S-'
-	sid += "%d" % ord(value[0])
-
-	sid_len = ord(value[1])
-
-	sid += "-%d" % ord(value[7])
-
-	for i in range(0, sid_len):
-		res = ord(value[8 + (i * 4)]) + (ord(value[9 + (i * 4)]) << 8) + (ord(value[10 + (i * 4)]) << 16) + (ord(value[11 + (i * 4)]) << 24)
-		sid += "-%u" % res
-
-	return sid
+	return str(ndr_unpack(security.dom_sid, value))
 
 
 def encode_list(list, encoding):
@@ -534,76 +513,56 @@ def decode_list(list, encoding):
 def encode_modlist(list, encoding):
 	newlist = []
 	for (modtype, attr, values) in list:
-		if hasattr(attr, 'encode'):
-			newattr = attr.encode(encoding)
-		else:
-			newattr = attr
-
 		if attr in DECODE_IGNORELIST:
-			newlist.append((modtype, newattr, values))
+			newlist.append((modtype, attr, values))
 			continue
 
 		if isinstance(values, type([])):
-			newlist.append((modtype, newattr, encode_list(values, encoding)))
+			newlist.append((modtype, attr, encode_list(values, encoding)))
 		else:
-			newlist.append((modtype, newattr, encode_list(values, encoding)))
+			newlist.append((modtype, attr, encode_list(values, encoding)))
 	return newlist
 
 
 def decode_modlist(list, encoding):
 	newlist = []
 	for (modtype, attr, values) in list:
-		if hasattr(attr, 'decode') and not isinstance(attr, unicode):
-			newattr = attr.decode(encoding)
-		else:
-			newattr = attr
-
 		if attr in DECODE_IGNORELIST:
-			newlist.append((modtype, newattr, values))
+			newlist.append((modtype, attr, values))
 			continue
 
 		if isinstance(values, type([])):
-			newlist.append((modtype, newattr, decode_list(values, encoding)))
+			newlist.append((modtype, attr, decode_list(values, encoding)))
 		else:
-			newlist.append((modtype, newattr, decode_list(values, encoding)))
+			newlist.append((modtype, attr, decode_list(values, encoding)))
 	return newlist
 
 
 def encode_addlist(list, encoding):
 	newlist = []
 	for (attr, values) in list:
-		if hasattr(attr, 'encode'):
-			newattr = attr.encode(encoding)
-		else:
-			newattr = attr
-
 		if attr in DECODE_IGNORELIST:
-			newlist.append((newattr, values))
+			newlist.append((attr, values))
 			continue
 
 		if isinstance(values, type([])):
-			newlist.append((newattr, encode_list(values, encoding)))
+			newlist.append((attr, encode_list(values, encoding)))
 		else:
-			newlist.append((newattr, encode_list(values, encoding)))
+			newlist.append((attr, encode_list(values, encoding)))
 	return newlist
 
 
 def decode_addlist(list, encoding):
 	newlist = []
 	for (attr, values) in list:
-		if hasattr(attr, 'decode') and not isinstance(attr, unicode):
-			newattr = attr.decode(encoding)
-		else:
-			newattr = attr
-
 		if attr in DECODE_IGNORELIST:
-			newlist.append((newattr, values))
+			newlist.append((attr, values))
 			continue
 
 		if isinstance(values, type([])):
-			newlist.append((newattr, decode_list(values, encoding)))
+			newlist.append((attr, decode_list(values, encoding)))
 		else:
-			newlist.append((newattr, decode_list(values, encoding)))
+			newlist.append((attr, decode_list(values, encoding)))
 	return newlist
 
 
@@ -847,7 +806,7 @@ class s4(univention.s4connector.ucs):
 
 			ud.debug(ud.LDAP, ud.PROCESS, 'Internal group membership cache was created')
 
-		self.s4_sid = decode_sid(self.s4_search_ext_s(s4_ldap_base, ldap.SCOPE_BASE, 'objectclass=domain', ['objectSid'])[0][1]['objectSid'][0].decode('ISO8859-1'))
+		self.s4_sid = decode_sid(self.s4_search_ext_s(s4_ldap_base, ldap.SCOPE_BASE, 'objectclass=domain', ['objectSid'])[0][1]['objectSid'][0])
 
 	def s4_search_ext_s(self, *args, **kwargs):
 		return fix_dn_in_search(self.lo_s4.lo.search_ext_s(*args, **kwargs))
@@ -907,9 +866,9 @@ class s4(univention.s4connector.ucs):
 	def __encode_GUID(self, GUID):
 		# GUID may be unicode
 		if isinstance(GUID, type(u'')):
-			return GUID.encode('latin1').encode('base64')
+			return base64.b64encode(GUID.encode('latin1'))
 		else:
-			return GUID.encode('base64')
+			return base64.b64encode(GUID)
 
 	def _get_DN_for_GUID(self, GUID):
 		_d = ud.function('ldap._get_DN_for_GUID')  # noqa: F841
@@ -979,7 +938,7 @@ class s4(univention.s4connector.ucs):
 		_d = ud.function('ldap.get_object_dn')  # noqa: F841
 		for i in [0, 1]:  # do it twice if the LDAP connection was closed
 			try:
-				dn, s4_object = self.s4_search_ext_s(compatible_modstring(dn), ldap.SCOPE_BASE, '(objectClass=*)', ('dn',))[0]
+				dn, s4_object = self.s4_search_ext_s(dn, ldap.SCOPE_BASE, '(objectClass=*)', ('1.1',))[0]
 				ud.debug(ud.LDAP, ud.INFO, "get_object: got object: %r" % (dn,))
 				return dn
 			except (IndexError, ldap.NO_SUCH_OBJECT):
@@ -1047,7 +1006,7 @@ class s4(univention.s4connector.ucs):
 		_d = ud.function('ldap.get_object')  # noqa: F841
 		for i in [0, 1]:  # do it twice if the LDAP connection was closed
 			try:
-				dn, s4_object = self.s4_search_ext_s(compatible_modstring(dn), ldap.SCOPE_BASE, '(objectClass=*)', attrlist=attrlist)[0]
+				dn, s4_object = self.s4_search_ext_s(dn, ldap.SCOPE_BASE, '(objectClass=*)', attrlist=attrlist)[0]
 				ud.debug(ud.LDAP, ud.INFO, "get_object: got object: %r" % (dn,))
 				return encode_s4_object(s4_object)
 			except (IndexError, ldap.NO_SUCH_OBJECT):
@@ -1231,7 +1190,7 @@ class s4(univention.s4connector.ucs):
 		_d = ud.function('ldap.__dn_from_deleted_object')  # noqa: F841
 
 		rdn = object['dn'].split('\\0ADEL:')[0]
-		last_known_parent = object['attributes'].get('lastKnownParent', [None])[0]
+		last_known_parent = object['attributes'].get('lastKnownParent', [None])[0].decode('UTF-8')
 		if last_known_parent and '\\0ADEL:' in last_known_parent:
 			dn, attr = self.__get_s4_deleted(last_known_parent)
 			last_known_parent = self.__dn_from_deleted_object({'dn': dn, 'attributes': attr}, GUID)
@@ -1264,7 +1223,7 @@ class s4(univention.s4connector.ucs):
 		GUID = element[1]['objectGUID'][0]  # don't send this GUID to univention-debug
 
 		# modtype
-		if 'isDeleted' in element[1] and element[1]['isDeleted'][0] == 'TRUE':
+		if 'isDeleted' in element[1] and element[1]['isDeleted'][0] == b'TRUE':
 			object['modtype'] = 'delete'
 			deleted_object = True
 		else:
@@ -1342,7 +1301,7 @@ class s4(univention.s4connector.ucs):
 		rid_filter = format_escaped("(samaccountname={0!e})", compatible_modstring(object_ucs['username']))
 		s4_group_rid_resultlist = self.__search_s4(base=self.lo_s4.base, scope=ldap.SCOPE_SUBTREE, filter=rid_filter, attrlist=['dn', 'primaryGroupID'])
 
-		if not s4_group_rid_resultlist[0][0] in ['None', '', None]:
+		if not s4_group_rid_resultlist[0][0] in [b'None', b'', None]:
 
 			s4_group_rid = s4_group_rid_resultlist[0][1]['primaryGroupID'][0]
 
@@ -1377,7 +1336,7 @@ class s4(univention.s4connector.ucs):
 			ud.debug(ud.LDAP, ud.PROCESS, 'primary_group_sync_from_ucs: The S4 object (%s) was not found. The object was removed.' % object['dn'])
 			return
 
-		ucs_group_id = ldap_object_ucs['gidNumber'][0]  # FIXME: fails if group does not exists
+		ucs_group_id = ldap_object_ucs['gidNumber'][0].decode('UTF-8')  # FIXME: fails if group does not exists
 		ucs_group_filter = format_escaped('(&(objectClass=univentionGroup)(gidNumber={0!e}))', ucs_group_id)
 		ucs_group_ldap = self.search_ucs(filter=ucs_group_filter)  # is empty !?
 
@@ -1540,7 +1499,7 @@ class s4(univention.s4connector.ucs):
 			return
 
 		ldap_object_ucs_gidNumber = ldap_object_ucs['gidNumber'][0]
-		ucs_members = set(ldap_object_ucs.get('uniqueMember', []))
+		ucs_members = set([val.decode('UTF-8') for val in ldap_object_ucs.get('uniqueMember', [])])
 		ud.debug(ud.LDAP, ud.INFO, "ucs_members: %s" % ucs_members)
 		if ucs_members:
 			# skip members which have this group as primary group (set same gidNumber)
@@ -1634,7 +1593,7 @@ class s4(univention.s4connector.ucs):
 
 		# need to remove users from s4_members_from_ucs which have this group as primary group. may failed earlier if groupnames are mapped
 		try:
-			group_rid = decode_sid(fix_dn_in_search(self.lo_s4.lo.search_s(compatible_modstring(object['dn']), ldap.SCOPE_BASE, '(objectClass=*)', ['objectSid']))[0][1]['objectSid'][0]).split('-')[-1]
+			group_rid = decode_sid(fix_dn_in_search(self.lo_s4.lo.search_s(object['dn'], ldap.SCOPE_BASE, '(objectClass=*)', ['objectSid']))[0][1]['objectSid'][0]).split('-')[-1]
 		except ldap.NO_SUCH_OBJECT:
 			group_rid = None
 
@@ -2300,7 +2259,7 @@ class s4(univention.s4connector.ucs):
 			old_dn = object['olddn']
 			# the old object was moved in UCS, but does this object exist in S4?
 			try:
-				old_object = self.s4_search_ext_s(compatible_modstring(old_dn), ldap.SCOPE_BASE, 'objectClass=*')
+				old_object = self.s4_search_ext_s(old_dn, ldap.SCOPE_BASE, 'objectClass=*')
 			except ldap.SERVER_DOWN:
 				raise
 			except Exception:
@@ -2311,7 +2270,7 @@ class s4(univention.s4connector.ucs):
 				try:
 					self.lo_s4.rename(unicode(old_dn), object['dn'])
 				except ldap.NO_SUCH_OBJECT:  # check if object is already moved (we may resync now)
-					new = encode_s4_resultlist(self.s4_search_ext_s(compatible_modstring(object['dn']), ldap.SCOPE_BASE, 'objectClass=*'))
+					new = encode_s4_resultlist(self.s4_search_ext_s(object['dn'], ldap.SCOPE_BASE, 'objectClass=*'))
 					if not new:
 						raise
 				# need to actualise the GUID, group cache and DN-Mapping
@@ -2321,7 +2280,7 @@ class s4(univention.s4connector.ucs):
 				self.group_member_mapping_cache_ucs[pre_mapped_ucs_dn.lower()] = object['dn']
 				self.group_member_mapping_cache_con[object['dn'].lower()] = pre_mapped_ucs_dn
 
-				self._set_DN_for_GUID(self.s4_search_ext_s(compatible_modstring(object['dn']), ldap.SCOPE_BASE, 'objectClass=*')[0][1]['objectGUID'][0], object['dn'])
+				self._set_DN_for_GUID(self.s4_search_ext_s(object['dn'], ldap.SCOPE_BASE, 'objectClass=*')[0][1]['objectGUID'][0], object['dn'])
 				self._remove_dn_mapping(pre_mapped_ucs_old_dn, unicode(old_dn))
 				self._check_dn_mapping(pre_mapped_ucs_dn, object['dn'])
 
@@ -2397,7 +2356,7 @@ class s4(univention.s4connector.ucs):
 				ud.debug(ud.LDAP, ud.INFO, "to add: %s" % object['dn'])
 				ud.debug(ud.LDAP, ud.ALL, "sync_from_ucs: addlist: %s" % addlist)
 				try:
-					self.lo_s4.lo.add_ext_s(compatible_modstring(object['dn']), compatible_addlist(addlist), serverctrls=ctrls)  # FIXME encoding
+					self.lo_s4.lo.add_ext_s(object['dn'], compatible_addlist(addlist), serverctrls=ctrls)  # FIXME encoding
 				except (ldap.ALREADY_EXISTS, ldap.CONSTRAINT_VIOLATION):
 					sAMAccountName = object['attributes'].get('sAMAccountName', [None])[0]
 					sambaSID = object['attributes'].get('sambaSID', [None])[0]
@@ -2436,7 +2395,7 @@ class s4(univention.s4connector.ucs):
 				if modlist:
 					ud.debug(ud.LDAP, ud.ALL, "sync_from_ucs: modlist: %s" % modlist)
 					try:
-						self.lo_s4.lo.modify_ext_s(compatible_modstring(object['dn']), compatible_modlist(modlist), serverctrls=ctrls)
+						self.lo_s4.lo.modify_ext_s(object['dn'], compatible_modlist(modlist), serverctrls=ctrls)
 					except Exception:
 						ud.debug(ud.LDAP, ud.ERROR, "sync_from_ucs: traceback during modify object: %s" % object['dn'])
 						ud.debug(ud.LDAP, ud.ERROR, "sync_from_ucs: traceback due to modlist: %s" % modlist)
@@ -2596,7 +2555,7 @@ class s4(univention.s4connector.ucs):
 					ud.debug(ud.LDAP, ud.INFO, "to modify: %s" % object['dn'])
 					ud.debug(ud.LDAP, ud.ALL, "sync_from_ucs: modlist: %s" % modlist)
 					try:
-						self.lo_s4.lo.modify_ext_s(compatible_modstring(object['dn']), compatible_modlist(modlist), serverctrls=self.serverctrls_for_add_and_modify)
+						self.lo_s4.lo.modify_ext_s(object['dn'], compatible_modlist(modlist), serverctrls=self.serverctrls_for_add_and_modify)
 					except Exception:
 						ud.debug(ud.LDAP, ud.ERROR, "sync_from_ucs: traceback during modify object: %s" % object['dn'])
 						ud.debug(ud.LDAP, ud.ERROR, "sync_from_ucs: traceback due to modlist: %s" % modlist)
@@ -2665,13 +2624,13 @@ class s4(univention.s4connector.ucs):
 		if self.property[property_type].con_subtree_delete_objects:
 			_l = ["(%s)" % x for x in self.property[property_type].con_subtree_delete_objects]
 			allow_delete_filter = "(|%s)" % ''.join(_l)
-			for sub_dn, _ in self.s4_search_ext_s(compatible_modstring(parent_s4_object['dn']), ldap.SCOPE_SUBTREE, allow_delete_filter):
+			for sub_dn, _ in self.s4_search_ext_s(parent_s4_object['dn'], ldap.SCOPE_SUBTREE, allow_delete_filter):
 				if self.lo.compare_dn(unicode(sub_dn).lower(), unicode(parent_s4_object['dn']).lower()):  # FIXME: remove and search with scope=children instead
 					continue
 				ud.debug(ud.LDAP, ud.INFO, "delete: %r" % (sub_dn,))
 				self.lo_s4.lo.delete_s(compatible_modstring(sub_dn))
 
-		for subdn, subattr in self.s4_search_ext_s(compatible_modstring(parent_s4_object['dn']), ldap.SCOPE_SUBTREE, 'objectClass=*'):
+		for subdn, subattr in self.s4_search_ext_s(parent_s4_object['dn'], ldap.SCOPE_SUBTREE, 'objectClass=*'):
 			if self.lo.compare_dn(unicode(subdn).lower(), unicode(parent_s4_object['dn']).lower()):  # FIXME: remove and search with scope=children instead
 				continue
 			ud.debug(ud.LDAP, ud.INFO, "delete: %r" % (subdn,))
