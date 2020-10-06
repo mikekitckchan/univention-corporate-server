@@ -39,7 +39,7 @@ import os
 import ldap
 import sys
 import univention.uldap
-from optparse import OptionParser
+from argparse import ArgumentParser
 from univention.config_registry import ConfigRegistry
 
 
@@ -116,18 +116,16 @@ class UCSResync(object):
 
 
 if __name__ == '__main__':
+	parser = ArgumentParser()
+	parser.add_argument("--filter", dest="ldapfilter", help="LDAP Filter")
+	parser.add_argument("dn", default=None)
+	options = parser.parse_args()
 
-	parser = OptionParser(usage='resync_object_from_ucs.py [--filter <LDAP filter>] [dn]')
-	parser.add_option("--filter", dest="ldapfilter", help="LDAP Filter")
-	(options, args) = parser.parse_args()
-
-	if len(args) != 1 and not options.ldapfilter:
+	if not options.dn and not options.ldapfilter:
 		parser.print_help()
 		sys.exit(2)
 
-	ucs_dns = []
-	if len(args) == 1:
-		ucs_dns.append(args[0])
+	ucs_dns = list(filter(None, [options.dn]))
 
 	treated_dns = []
 	try:

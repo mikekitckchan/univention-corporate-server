@@ -35,7 +35,7 @@ from __future__ import print_function
 
 import subprocess
 import sys
-from optparse import OptionParser
+from argparse import ArgumentParser
 import univention.config_registry
 import univention.admin.uldap
 import univention.admin.uexceptions
@@ -121,13 +121,13 @@ def _nano2s(nanoseconds):
 
 
 if __name__ == '__main__':
-	parser = OptionParser(usage='msgpo.py (--write2ucs|--write2samba4)')
-	parser.add_option("--write2ucs", dest="write2ucs", action="store_true", help="Write Samba password settings from Samba 4 to UCS", default=False)
-	parser.add_option("--write2samba4", dest="write2samba4", action="store_true", help="Write Samba password settings from UCS to Samba 4", default=False)
-	parser.add_option("--binddn", dest="binddn", action="store", help="Binddn for UCS LDAP connection")
-	parser.add_option("--bindpwd", dest="bindpwd", action="store", help="Password for UCS LDAP connection")
-	parser.add_option("--bindpwdfile", dest="bindpwdfile", action="store", help="Password file for UCS LDAP connection")
-	(options, args) = parser.parse_args()
+	parser = ArgumentParser(usage='msgpo.py (--write2ucs|--write2samba4)')
+	parser.add_argument("--write2ucs", action="store_true", help="Write Samba password settings from Samba 4 to UCS", default=False)
+	parser.add_argument("--write2samba4", action="store_true", help="Write Samba password settings from UCS to Samba 4", default=False)
+	parser.add_argument("--binddn", action="store", help="Binddn for UCS LDAP connection")
+	parser.add_argument("--bindpwd", action="store", help="Password for UCS LDAP connection")
+	parser.add_argument("--bindpwdfile", action="store", help="Password file for UCS LDAP connection")
+	options = parser.parse_args()
 	if options.bindpwdfile:
 		with open(options.bindpwdfile) as f:
 			options.bindpwd = f.readline().strip()
