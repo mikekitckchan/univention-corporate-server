@@ -1813,7 +1813,7 @@ class s4(univention.s4connector.ucs):
 
 		# lookup all current members of UCS group
 		ldap_object_ucs = self.get_ucs_ldap_object(object['dn'])
-		ucs_members = set(ldap_object_ucs.get('uniqueMember', []))
+		ucs_members = set(x.decode('UTF-8') for x in ldap_object_ucs.get('uniqueMember', []))
 		ud.debug(ud.LDAP, ud.INFO, "group_members_sync_to_ucs: ucs_members: %s" % ucs_members)
 
 		# map members from S4 to UCS and check if they exist
