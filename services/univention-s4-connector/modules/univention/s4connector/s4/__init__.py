@@ -587,14 +587,20 @@ def decode_addlist(list_, encoding):
 
 
 def compatible_list(list):
+	if six.PY3:
+		return list
 	return encode_list(decode_list(list, 'latin1'), 'utf8')
 
 
 def compatible_modlist(list):
+	if six.PY3:
+		return list
 	return encode_modlist(decode_modlist(list, 'latin1'), 'utf8')
 
 
 def compatible_addlist(list):
+	if six.PY3:
+		return list
 	return encode_addlist(decode_addlist(list, 'latin1'), 'utf8')
 
 
