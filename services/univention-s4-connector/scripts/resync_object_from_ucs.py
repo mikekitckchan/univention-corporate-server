@@ -33,7 +33,7 @@
 
 from __future__ import print_function
 
-import pickle
+from six.moves import cPickle as pickle
 import time
 import os
 import ldap

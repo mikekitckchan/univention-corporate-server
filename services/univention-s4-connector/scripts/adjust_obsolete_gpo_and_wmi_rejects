@@ -37,7 +37,7 @@ import os
 import imp
 import sqlite3
 import sys
-import pickle
+from six.moves import cPickle as pickle
 import ldap
 import univention.uldap
 from univention.config_registry import ConfigRegistry
