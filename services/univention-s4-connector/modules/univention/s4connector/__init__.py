@@ -758,8 +758,8 @@ class ucs(object):
 		'''
 
 		try:
-			with open(filename) as fob:
-				(dn, new, old, old_dn) = pickle.load(fob)
+			with open(filename, 'rb') as fob:
+				(dn, new, old, old_dn) = pickle.load(fob, encoding='bytes')
 		except IOError:
 			return True  # file not found so there's nothing to sync
 		except (pickle.UnpicklingError, EOFError) as e:
@@ -1099,8 +1099,8 @@ class ucs(object):
 			if not filename == "%s/tmp" % self.baseConfig['%s/s4/listener/dir' % self.CONFIGBASENAME]:
 				if filename not in self.rejected_files:
 					try:
-						with open(filename) as fob:
-							(dn, new, old, old_dn) = pickle.load(fob)
+						with open(filename, 'rb') as fob:
+							(dn, new, old, old_dn) = pickle.load(fob, encoding='bytes')
 					except IOError:
 						continue  # file not found so there's nothing to sync
 					except (pickle.UnpicklingError, EOFError) as e:
