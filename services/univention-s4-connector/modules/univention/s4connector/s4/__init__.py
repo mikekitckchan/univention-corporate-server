@@ -82,7 +82,7 @@ def normalise_userAccountControl(s4connector, key, object):
 	ud.debug(ud.LDAP, ud.ALL, "normalise_userAccountControl: dn: %s" % object['dn'])
 	for i in range(0, 10):
 		try:
-			s4connector.lo_s4.lo.modify_s(compatible_modstring(object['dn']), [(ldap.MOD_REPLACE, 'userAccountControl', ['512'])])
+			s4connector.lo_s4.lo.modify_s(compatible_modstring(object['dn']), [(ldap.MOD_REPLACE, 'userAccountControl', [b'512'])])
 		except ldap.NO_SUCH_OBJECT:
 			time.sleep(1)
 			continue
@@ -126,7 +126,7 @@ def add_primary_group_to_addlist(s4connector, property_type, object, addlist, se
 	gidNumber = object.get('attributes', {}).get('gidNumber')
 	primary_group_sid = object.get('attributes', {}).get('sambaPrimaryGroupSID')
 	if gidNumber:
-		if isinstance(gidNumber, type([])):
+		if isinstance(gidNumber, list):
 			gidNumber = gidNumber[0]
 		ud.debug(ud.LDAP, ud.INFO, 'add_primary_group_to_addlist: gidNumber: %s' % gidNumber)
 
@@ -176,15 +176,15 @@ def check_for_local_group_and_extend_serverctrls_and_sid(s4connector, property_t
 
 def unicode_to_utf8(attrib):
 	'''The inverse of encode_attrib'''
-	if not isinstance(attrib, types.UnicodeType):
+	if isinstance(attrib, bytes):
 		return attrib
 	return attrib.encode('utf8')
 
 
 def encode_attrib(attrib):
-	if not attrib or isinstance(attrib, type(u'')):  # referral or already unicode
+	if not attrib or isinstance(attrib, unicode):  # referral or already unicode
 		return attrib
-	return unicode(attrib)
+	return attrib.decode('UTF-8')
 
 
 def fix_dn_in_search(result):
@@ -204,16 +204,14 @@ def str2dn(dn):
 
 
 def encode_attriblist(attriblist):
-	if not isinstance(attriblist, type([])):
+	if not isinstance(attriblist, list):
 		return encode_attrib(attriblist)
 	else:
-		for i in range(len(attriblist)):
-			attriblist[i] = encode_attrib(attriblist[i])
-		return attriblist
+		return [encode_attrib(x) for x in attriblist]
 
 
 def encode_s4_object(s4_object):
-	if isinstance(s4_object, type([])):
+	if isinstance(s4_object, list):
 		return encode_attriblist(s4_object)
 	else:
 		for key in s4_object.keys():
