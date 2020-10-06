@@ -1,4 +1,4 @@
-#!/usr/bin/python2.7
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
 # Univention S4 Connector
@@ -31,7 +31,9 @@
 # /usr/share/common-licenses/AGPL-3; if not, see
 # <https://www.gnu.org/licenses/>.
 
-import cPickle
+from __future__ import print_function
+
+import pickle
 import time
 import os
 import ldap
@@ -41,7 +43,7 @@ from optparse import OptionParser
 from univention.config_registry import ConfigRegistry
 
 
-class UCSResync:
+class UCSResync(object):
 
 	def __init__(self):
 		self.configRegistry = ConfigRegistry()
@@ -59,8 +61,8 @@ class UCSResync:
 	def _dump_object_to_file(self, object_data):
 		filename = self._generate_filename()
 		f = open(filename, 'w+')
-		os.chmod(filename, 0600)
-		p = cPickle.Pickler(f)
+		os.chmod(filename, 0o600)
+		p = pickle.Pickler(f)
 		p.dump(object_data)
 		p.clear_memo()
 		f.close()
@@ -132,15 +134,15 @@ if __name__ == '__main__':
 		resync = UCSResync()
 		treated_dns = resync.resync(ucs_dns, options.ldapfilter)
 	except ldap.NO_SUCH_OBJECT as ex:
-		print 'ERROR: The LDAP object not found : %s' % ex.args[1]
+		print('ERROR: The LDAP object not found : %s' % ex.args[1])
 		if len(ex.args) == 3:
 			treated_dns = ex.args[2]
 		sys.exit(1)
 	finally:
 		for dn in treated_dns:
-			print 'resync triggered for %s' % dn
+			print('resync triggered for %s' % dn)
 
 	if not treated_dns:
-		print 'No matching objects.'
+		print('No matching objects.')
 
 	sys.exit(0)

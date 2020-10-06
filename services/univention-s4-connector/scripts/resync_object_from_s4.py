@@ -1,4 +1,4 @@
-#!/usr/bin/python2.7
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
 # Univention S4 Connector
@@ -31,6 +31,7 @@
 # /usr/share/common-licenses/AGPL-3; if not, see
 # <https://www.gnu.org/licenses/>.
 
+from __future__ import print_function
 import sys
 from optparse import OptionParser
 from univention.config_registry import ConfigRegistry
@@ -50,7 +51,7 @@ class GuidNotFound(BaseException):
 	pass
 
 
-class S4Resync:
+class S4Resync(object):
 
 	def __init__(self):
 		self.configRegistry = ConfigRegistry()
@@ -156,18 +157,18 @@ if __name__ == '__main__':
 		resync = S4Resync()
 		treated_dns = resync.resync(s4_dns, options.ldapfilter)
 	except ldb.LdbError as ex:
-		print 'ERROR: The S4 object was not found: %s' % (ex.args[1],)
+		print('ERROR: The S4 object was not found: %s' % (ex.args[1],))
 		if len(ex.args) == 3:
 			treated_dns = ex.args[2]
 		sys.exit(1)
 	except GuidNotFound as ex:
-		print 'ERROR: The S4 search for objectGUID failed: %s' % (ex.args[1],)
+		print('ERROR: The S4 search for objectGUID failed: %s' % (ex.args[1],))
 		if len(ex.args) == 3:
 			treated_dns = ex.args[2]
 		sys.exit(1)
 	finally:
 		for dn in treated_dns:
-			print 'resync triggered for %s' % dn
+			print('resync triggered for %s' % dn)
 
 	if treated_dns:
 		estimated_delay = 60
@@ -176,8 +177,8 @@ if __name__ == '__main__':
 		except ValueError:
 			pass
 
-		print 'Estimated sync in %s seconds.' % (estimated_delay,)
+		print('Estimated sync in %s seconds.' % (estimated_delay,))
 	else:
-		print 'No matching objects.'
+		print('No matching objects.')
 
 	sys.exit(0)

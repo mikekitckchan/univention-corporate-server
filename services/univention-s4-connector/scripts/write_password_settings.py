@@ -1,4 +1,4 @@
-#!/usr/bin/python2.7
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
 # Univention S4 Connector
@@ -31,9 +31,10 @@
 # /usr/share/common-licenses/AGPL-3; if not, see
 # <https://www.gnu.org/licenses/>.
 
+from __future__ import print_function
+
 import subprocess
 import sys
-import ldap
 from optparse import OptionParser
 import univention.config_registry
 import univention.admin.uldap
@@ -55,8 +56,8 @@ def _connect_ucs(configRegistry, binddn, bindpwd):
 	host = configRegistry.get('connector/ldap/server', configRegistry.get('ldap/master'))
 
 	try:
-		port = int(configRegistry.get('connector/ldap/port', configRegistry.get('ldap/master/port')))
-	except:
+		port = int(configRegistry.get('connector/ldap/port', configRegistry.get('ldap/master/port', 7389)))
+	except ValueError:
 		port = 7389
 
 	lo = univention.admin.uldap.access(host=host, port=port, base=configRegistry['ldap/base'], binddn=binddn, bindpw=bindpw, start_tls=2, follow_referral=True)
@@ -87,14 +88,12 @@ def _get_s4_object(dn):
 
 def write_to_s4(configRegistry, mod_str):
 	''' Write the mod_str to Samba LDAP '''
-	s4_ldap_base = configRegistry.get('connector/s4/ldap/base').lower()
-	ucs_ldap_base = configRegistry.get('ldap/base').lower()
 	p1 = subprocess.Popen(['ldbmodify', '-H', '/var/lib/samba/private/sam.ldb'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, shell=False)
 	(stdout, stderr) = p1.communicate(mod_str)
 	if p1.returncode != 0:
-		print 'Failed to write to Samba 4: %s' % (mod_str)
+		print('Failed to write to Samba 4: %s' % (mod_str))
 	else:
-		print 'Synchronization of password setting attributes from UCS to Samba 4 was successful.'
+		print('Synchronization of password setting attributes from UCS to Samba 4 was successful.')
 
 
 def search_ucs_sambadomain_object(configRegistry, lo, SID):
@@ -105,9 +104,9 @@ def search_ucs_sambadomain_object(configRegistry, lo, SID):
 	if len(ldap_result) == 1:
 		return ldap_result[0]
 	elif len(ldap_result) > 0:
-		print 'ERROR: Found more than one sambaDomain object with sambaSID %s' % SID
+		print('ERROR: Found more than one sambaDomain object with sambaSID %s' % SID)
 	else:
-		print 'ERROR: Did not find a sambaDomain object with sambaSID %s' % SID
+		print('ERROR: Did not find a sambaDomain object with sambaSID %s' % SID)
 
 # Time interval in S4 / AD is often 100-nanosecond intervals:
 # http://msdn.microsoft.com/en-us/library/windows/desktop/ms676863%28v=vs.85%29.aspx
@@ -118,11 +117,10 @@ def _s2nano(seconds):
 
 
 def _nano2s(nanoseconds):
-	return nanoseconds / 10000000
+	return nanoseconds // 10000000
 
 
 if __name__ == '__main__':
-
 	parser = OptionParser(usage='msgpo.py (--write2ucs|--write2samba4)')
 	parser.add_option("--write2ucs", dest="write2ucs", action="store_true", help="Write Samba password settings from Samba 4 to UCS", default=False)
 	parser.add_option("--write2samba4", dest="write2samba4", action="store_true", help="Write Samba password settings from UCS to Samba 4", default=False)
@@ -145,7 +143,7 @@ if __name__ == '__main__':
 		ml = []
 		sync_times = [('sambaMaxPwdAge', 'maxPwdAge'), ('sambaMinPwdAge', 'minPwdAge'), ('sambaLockoutDuration', 'lockoutDuration')]
 		for (ucs_attr, s4_attr) in sync_times:
-			s4_time = _nano2s(long(s4_object.get(s4_attr, [0])[0]) * -1)
+			s4_time = _nano2s(int(s4_object.get(s4_attr, [0])[0]) * -1)
 			ml.append((ucs_attr, ucs_object_attr.get(ucs_attr), [str(s4_time)]))
 		sync_integers = [('sambaPwdHistoryLength', 'pwdHistoryLength'), ('sambaMinPwdLength', 'minPwdLength')]
 		for (ucs_attr, s4_attr) in sync_integers:
@@ -159,7 +157,7 @@ if __name__ == '__main__':
 		mod_str = 'dn: %s\nchangetype: modify\n' % configRegistry.get('samba4/ldap/base')
 		sync_times = [('sambaMaxPwdAge', 'maxPwdAge'), ('sambaMinPwdAge', 'minPwdAge'), ('sambaLockoutDuration', 'lockoutDuration')]
 		for (ucs_attr, s4_attr) in sync_times:
-			ucs_value = long(ucs_object[1].get(ucs_attr, [0])[0])
+			ucs_value = int(ucs_object[1].get(ucs_attr, [0])[0])
 			new_value = str(_s2nano(ucs_value) * -1)
 			mod_str += 'replace: %s\n%s: %s\n' % (s4_attr, s4_attr, new_value)
 		sync_integers = [('sambaPwdHistoryLength', 'pwdHistoryLength'), ('sambaMinPwdLength', 'minPwdLength')]

@@ -1,4 +1,4 @@
-#!/usr/bin/python2.7
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
 # Univention S4 Connector
@@ -31,6 +31,7 @@
 # /usr/share/common-licenses/AGPL-3; if not, see
 # <https://www.gnu.org/licenses/>.
 
+from __future__ import print_function
 import subprocess
 import sys
 import ldap
@@ -55,8 +56,8 @@ def _connect_ucs(configRegistry, binddn, bindpwd):
 	host = configRegistry.get('connector/ldap/server', configRegistry.get('ldap/master'))
 
 	try:
-		port = int(configRegistry.get('connector/ldap/port', configRegistry.get('ldap/master/port')))
-	except:
+		port = int(configRegistry.get('connector/ldap/port', configRegistry.get('ldap/master/port', 7389)))
+	except ValueError:
 		port = 7389
 
 	lo = univention.admin.uldap.access(host=host, port=port, base=configRegistry['ldap/base'], binddn=binddn, bindpw=bindpw, start_tls=2, follow_referral=True)
@@ -75,7 +76,7 @@ def search_s4():
 	(stdout, stderr) = p1.communicate()
 
 	if p1.returncode != 0:
-		print stderr
+		print(stderr)
 		sys.exit(p1.returncode)
 
 	result = {}
@@ -132,9 +133,9 @@ def write_to_s4(configRegistry, ucs_result):
 			p1 = subprocess.Popen(['ldbmodify', '-H', '/var/lib/samba/private/sam.ldb'], stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE, shell=False)
 			(stdout, stderr) = p1.communicate(mod_str)
 			if p1.returncode != 0:
-				print 'Failed to set gPLink for Samba 4 object (%s)' % (s4_dn)
+				print('Failed to set gPLink for Samba 4 object (%s)' % (s4_dn))
 			else:
-				print 'Set gPLink for Samba 4 object (%s)' % (s4_dn)
+				print('Set gPLink for Samba 4 object (%s)' % (s4_dn))
 
 
 def search_ucs(configRegistry, binddn, bindpwd):
@@ -170,12 +171,12 @@ def write_to_ucs(configRegistry, s4_result, binddn, bindpwd, only_override_empty
 					ml.append(('objectClass', attributes.get('objectClass'), attributes.get('objectClass') + ['msGPO']))
 				ml.append(('msGPOLink', attributes.get('msGPOLink'), s4_result[s4_dn]))
 			if ml:
-				print 'Set msGPOLink for UCS object (%s)' % (ucs_dn)
+				print('Set msGPOLink for UCS object (%s)' % (ucs_dn))
 				lo.modify(ucs_dn, ml)
 		except univention.admin.uexceptions.noObject:
 			pass
-		except:
-			print 'Failed to set msGPOLink for UCS object (%s)' % (ucs_dn)
+		except Exception:
+			print('Failed to set msGPOLink for UCS object (%s)' % (ucs_dn))
 
 
 if __name__ == '__main__':
