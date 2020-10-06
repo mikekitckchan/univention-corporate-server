@@ -1,4 +1,4 @@
-#!/usr/bin/python2.7
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
 # Univention S4 Connector
@@ -43,11 +43,11 @@ class ObjectNotFound(BaseException):
 def remove_s4_rejected(s4_dn):
 	cache_db = sqlite3.connect('/etc/univention/connector/s4internal.sqlite')
 	c = cache_db.cursor()
-	c.execute("SELECT key FROM 'S4 rejected' WHERE value=?", [unicode(s4_dn)])
+	c.execute("SELECT key FROM 'S4 rejected' WHERE value=?", [str(s4_dn)])
 	key = c.fetchone()
 	if not key:
 		raise ObjectNotFound
-	c.execute("DELETE FROM 'S4 rejected' WHERE value=?", [unicode(s4_dn)])
+	c.execute("DELETE FROM 'S4 rejected' WHERE value=?", [str(s4_dn)])
 	cache_db.commit()
 	cache_db.close()
 
@@ -62,9 +62,9 @@ if __name__ == '__main__':
 	try:
 		remove_s4_rejected(s4_dn)
 	except ObjectNotFound:
-		print 'ERROR: The object %s was not found.' % s4_dn
+		print('ERROR: The object %s was not found.' % s4_dn)
 		sys.exit(1)
 
-	print 'The rejected S4 object %s has been removed.' % s4_dn
+	print('The rejected S4 object %s has been removed.' % s4_dn)
 
 	sys.exit(0)

@@ -1,4 +1,4 @@
-#!/usr/bin/python2.7
+#!/usr/bin/python3
 # -*- coding: utf-8 -*-
 #
 # Univention S4 Connector
@@ -31,6 +31,8 @@
 # /usr/share/common-licenses/AGPL-3; if not, see
 # <https://www.gnu.org/licenses/>.
 
+from __future__ import print_function
+
 import os
 import sqlite3
 import sys
@@ -44,7 +46,7 @@ class ObjectNotFound(BaseException):
 def remove_ucs_rejected(ucs_dn):
 	cache_db = sqlite3.connect('/etc/univention/connector/s4internal.sqlite')
 	c = cache_db.cursor()
-	c.execute("SELECT key FROM 'UCS rejected' WHERE value=?", [unicode(ucs_dn)])
+	c.execute("SELECT key FROM 'UCS rejected' WHERE value=?", [str(ucs_dn)])
 	filenames = c.fetchall()
 	if not filenames:
 		raise ObjectNotFound
@@ -52,7 +54,7 @@ def remove_ucs_rejected(ucs_dn):
 		if filename:
 			if os.path.exists(filename[0]):
 				os.remove(filename[0])
-	c.execute("DELETE FROM 'UCS rejected' WHERE value=?", [unicode(ucs_dn)])
+	c.execute("DELETE FROM 'UCS rejected' WHERE value=?", [str(ucs_dn)])
 	cache_db.commit()
 	cache_db.close()
 
@@ -67,9 +69,9 @@ if __name__ == '__main__':
 	try:
 		remove_ucs_rejected(ucs_dn)
 	except ObjectNotFound:
-		print 'ERROR: The object %s was not found.' % ucs_dn
+		print('ERROR: The object %s was not found.' % ucs_dn)
 		sys.exit(1)
 
-	print 'The rejected UCS object %s has been removed.' % ucs_dn
+	print('The rejected UCS object %s has been removed.' % ucs_dn)
 
 	sys.exit(0)
