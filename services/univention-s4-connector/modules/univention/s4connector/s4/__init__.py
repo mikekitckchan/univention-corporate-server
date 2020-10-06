@@ -128,6 +128,7 @@ def add_primary_group_to_addlist(s4connector, property_type, object, addlist, se
 	if gidNumber:
 		if isinstance(gidNumber, list):
 			gidNumber = gidNumber[0]
+		gidNumber = gidNumber.decode('UTF-8')
 		ud.debug(ud.LDAP, ud.INFO, 'add_primary_group_to_addlist: gidNumber: %s' % gidNumber)
 
 		ucs_group_filter = format_escaped('(&(objectClass=univentionGroup)(gidNumber={0!e}))', gidNumber)
@@ -141,10 +142,10 @@ def add_primary_group_to_addlist(s4connector, property_type, object, addlist, se
 		ldap_object_s4_group = s4connector.get_object(s4_group_object['dn'])
 
 		primary_group_sid = ldap_object_s4_group['objectSid'][0]
-		primary_group_rid = primary_group_sid.split('-')[-1]
+		primary_group_rid = primary_group_sid.split('-')[-1].encode('ASCII')
 
 		# Is the primary group Domain Users (the default)?
-		if primary_group_rid == '513':
+		if primary_group_rid == b'513':
 			return
 
 		ud.debug(ud.LDAP, ud.INFO, 'add_primary_group_to_addlist: Set primary group to %s (rid) for %s' % (primary_group_rid, object.get('dn')))
@@ -278,14 +279,14 @@ def samaccountname_dn_mapping(s4connector, given_object, dn_mapping_stored, ucso
 
 	if object['dn'] is not None:
 		if 'sAMAccountName' in object['attributes']:
-			samaccountname = object['attributes']['sAMAccountName'][0]
+			samaccountname = object['attributes']['sAMAccountName'][0].decode('UTF-8')
 		if dn_attr:
 			try:
 				dn_attr_vals = [value for key, value in object['attributes'].items() if dn_attr.lower() == key.lower()][0]
 			except IndexError:
 				pass
 			else:
-				dn_attr_val = dn_attr_vals[0]
+				dn_attr_val = dn_attr_vals[0].decode('UTF-8')
 
 	def dn_premapped(object, dn_key, dn_mapping_stored):
 		if (dn_key not in dn_mapping_stored) or (not object[dn_key]):
@@ -305,7 +306,7 @@ def samaccountname_dn_mapping(s4connector, given_object, dn_mapping_stored, ucso
 				rdn_value = unicode(rdn_value_utf8)
 				t_samaccount = u''
 				if object.get('attributes'):
-					t_samaccount = object['attributes'].get('sAMAccountName', [u''])[0]
+					t_samaccount = object['attributes'].get('sAMAccountName', [b''])[0].decode('UTF-8')
 				if rdn_value.lower() == t_samaccount.lower():
 					ud.debug(ud.LDAP, ud.INFO, "samaccount_dn_mapping: modtype is delete, use the premapped DN: %s" % object[dn_key])
 					return True
@@ -402,7 +403,7 @@ def samaccountname_dn_mapping(s4connector, given_object, dn_mapping_stored, ucso
 					try:
 						samaccountname_filter = format_escaped('(objectClass={0!e})', ocs4)
 						samaccountname_search_result = s4connector.s4_search_ext_s(compatible_modstring(search_dn), ldap.SCOPE_BASE, samaccountname_filter, ['sAMAccountName'])
-						samaccountname_attribute = samaccountname_search_result[0][1]['sAMAccountName'][0]
+						samaccountname_attribute = samaccountname_search_result[0][1]['sAMAccountName'][0].decode('UTF-8')
 						samaccountname = encode_attrib(samaccountname_attribute)
 						ud.debug(ud.LDAP, ud.INFO, "samaccount_dn_mapping: got samaccountname from S4")
 					except ldap.NO_SUCH_OBJECT:  # S4 may need time
@@ -421,7 +422,7 @@ def samaccountname_dn_mapping(s4connector, given_object, dn_mapping_stored, ucso
 
 				# search for object with this dn in ucs, needed if it lies in a different container
 				ucsdn = ''
-				ud.debug(ud.LDAP, ud.INFO, "samaccount_dn_mapping: samaccountname is:%s" % samaccountname)
+				ud.debug(ud.LDAP, ud.INFO, "samaccount_dn_mapping: samaccountname is: %r" % (samaccountname,))
 				ucsdn_filter = format_escaped(u'(&(objectclass={0!e})({1}={2!e}))', ocucs, ucsattrib, samaccountname)
 				ucsdn_result = s4connector.search_ucs(filter=ucsdn_filter, base=s4connector.lo.base, scope='sub', attr=['objectClass'])
 				if ucsdn_result and len(ucsdn_result) > 0 and ucsdn_result[0] and len(ucsdn_result[0]) > 0:
@@ -823,15 +824,13 @@ class s4(univention.s4connector.ucs):
 
 			ud.debug(ud.LDAP, ud.ALL, "__init__: self.group_members_cache_con: %s" % self.group_members_cache_con)
 
-			ucs_groups = self.search_ucs(filter='objectClass=univentionGroup', attr=['uniqueMember'])
-			for ucs_group in ucs_groups:
+			for ucs_group in self.search_ucs(filter='objectClass=univentionGroup', attr=['uniqueMember']):
 				group_lower = ucs_group[0].lower()
 				self.group_members_cache_ucs[group_lower] = set()
 				if ucs_group[1]:
 					for member in ucs_group[1].get('uniqueMember'):
-						self.group_members_cache_ucs[group_lower].add(member.lower())
+						self.group_members_cache_ucs[group_lower].add(member.decode('UTF-8').lower())
 			ud.debug(ud.LDAP, ud.ALL, "__init__: self.group_members_cache_ucs: %s" % self.group_members_cache_ucs)
-
 			ud.debug(ud.LDAP, ud.PROCESS, 'Internal group membership cache was created')
 
 		self.s4_sid = decode_sid(self.s4_search_ext_s(s4_ldap_base, ldap.SCOPE_BASE, 'objectclass=domain', ['objectSid'])[0][1]['objectSid'][0])
@@ -1217,7 +1216,7 @@ class s4(univention.s4connector.ucs):
 		_d = ud.function('ldap.__dn_from_deleted_object')  # noqa: F841
 
 		rdn = object['dn'].split('\\0ADEL:')[0]
-		last_known_parent = object['attributes'].get('lastKnownParent', [None])[0]
+		last_known_parent = object['attributes'].get('lastKnownParent', [b''])[0].decode('UTF-8')
 		if last_known_parent and '\\0ADEL:' in last_known_parent:
 			dn, attr = self.__get_s4_deleted(last_known_parent)
 			last_known_parent = self.__dn_from_deleted_object({'dn': dn, 'attributes': attr}, GUID)
@@ -1250,7 +1249,7 @@ class s4(univention.s4connector.ucs):
 		GUID = element[1]['objectGUID'][0]  # don't send this GUID to univention-debug
 
 		# modtype
-		if 'isDeleted' in element[1] and element[1]['isDeleted'][0] == 'TRUE':
+		if b'TRUE' in element[1].get('isDeleted', []):
 			object['modtype'] = 'delete'
 			deleted_object = True
 		else:
@@ -1328,14 +1327,12 @@ class s4(univention.s4connector.ucs):
 		rid_filter = format_escaped("(samaccountname={0!e})", compatible_modstring(object_ucs['username']))
 		s4_group_rid_resultlist = self.__search_s4(base=self.lo_s4.base, scope=ldap.SCOPE_SUBTREE, filter=rid_filter, attrlist=['dn', 'primaryGroupID'])
 
-		if not s4_group_rid_resultlist[0][0] in ['None', '', None]:
+		if not s4_group_rid_resultlist[0][0] in [b'None', b'', None]:
 
-			s4_group_rid = s4_group_rid_resultlist[0][1]['primaryGroupID'][0]
+			s4_group_rid = s4_group_rid_resultlist[0][1]['primaryGroupID'][0].decode('UTF-8')
 
-			ud.debug(ud.LDAP, ud.INFO, "set_primary_group_to_ucs_user: S4 rid: %s" % s4_group_rid)
-			object_sid_string = str(self.s4_sid) + "-" + str(s4_group_rid)
-
-			ldap_group_filter = format_escaped("(objectSid={0!e})", object_sid_string)
+			ud.debug(ud.LDAP, ud.INFO, "set_primary_group_to_ucs_user: S4 rid: %r" % s4_group_rid)
+			ldap_group_filter = format_escaped("(objectSid={0!e}-{1!e})", self.s4_sid, s4_group_rid)
 			ldap_group_s4 = self.__search_s4(base=self.lo_s4.base, scope=ldap.SCOPE_SUBTREE, filter=ldap_group_filter)
 
 			if not ldap_group_s4[0][0]:
@@ -1363,7 +1360,7 @@ class s4(univention.s4connector.ucs):
 			ud.debug(ud.LDAP, ud.PROCESS, 'primary_group_sync_from_ucs: The S4 object (%s) was not found. The object was removed.' % object['dn'])
 			return
 
-		ucs_group_id = ldap_object_ucs['gidNumber'][0]  # FIXME: fails if group does not exists
+		ucs_group_id = ldap_object_ucs['gidNumber'][0].decode('UTF-8')  # FIXME: fails if group does not exists
 		ucs_group_filter = format_escaped('(&(objectClass=univentionGroup)(gidNumber={0!e}))', ucs_group_id)
 		ucs_group_ldap = self.search_ucs(filter=ucs_group_filter)  # is empty !?
 
@@ -1406,9 +1403,8 @@ class s4(univention.s4connector.ucs):
 
 			# If the user is not member in UCS of the previous primary group, the user must
 			# be removed from this group in AD: https://forge.univention.org/bugzilla/show_bug.cgi?id=26514
-			prev_samba_primary_group_id = ldap_object_s4.get('primaryGroupID', [])[0]
-			object_sid_string = str(self.s4_sid) + "-" + str(prev_samba_primary_group_id)
-			s4_group_filter = format_escaped('(objectSid={0!e})', object_sid_string)
+			prev_samba_primary_group_id = ldap_object_s4['primaryGroupID'][0].decode('UTF-8')
+			s4_group_filter = format_escaped('(objectSid={0!e}-{1!e})', self.s4_sid, prev_samba_primary_group_id)
 			s4_group = self.__search_s4(base=self.lo_s4.base, scope=ldap.SCOPE_SUBTREE, filter=s4_group_filter)
 			ucs_group_object = self._object_mapping('group', {'dn': s4_group[0][0], 'attributes': s4_group[0][1]}, 'con')
 			ucs_group = self.get_ucs_ldap_object(ucs_group_object['dn'])
@@ -1434,12 +1430,10 @@ class s4(univention.s4connector.ucs):
 
 		s4_object = self._object_mapping(object_key, object, 'ucs')
 		ldap_object_s4 = self.get_object(s4_object['dn'])
-		s4_group_rid = ldap_object_s4['primaryGroupID'][0]
+		s4_group_rid = ldap_object_s4['primaryGroupID'][0].decode('UTF-8')
 		ud.debug(ud.LDAP, ud.INFO, "primary_group_sync_to_ucs: S4 rid: %s" % s4_group_rid)
 
-		object_sid_string = str(self.s4_sid) + "-" + str(s4_group_rid)
-
-		ldap_group_filter = format_escaped('(objectSid={0!e})', object_sid_string)
+		ldap_group_filter = format_escaped('(objectSid={0!e}-{1!e})', self.s4_sid, s4_group_rid)
 		ldap_group_s4 = self.__search_s4(base=self.lo_s4.base, scope=ldap.SCOPE_SUBTREE, filter=ldap_group_filter)
 
 		ucs_group = self._object_mapping('group', {'dn': ldap_group_s4[0][0], 'attributes': ldap_group_s4[0][1]})
@@ -1476,7 +1470,7 @@ class s4(univention.s4connector.ucs):
 		object_ucs = self._object_mapping(key, object)
 
 		# Exclude primary group
-		ucs_object_gid = object_ucs['attributes'].get('gidNumber', [])[0]
+		ucs_object_gid = object_ucs['attributes']['gidNumber'][0].decode('UTF-8')
 		ucs_group_filter = format_escaped('(&(objectClass=univentionGroup)(uniqueMember={0!e})(!(gidNumber={1!e})))', object_ucs['dn'], ucs_object_gid)
 		ucs_groups_ldap = self.search_ucs(filter=ucs_group_filter)
 
@@ -1517,16 +1511,15 @@ class s4(univention.s4connector.ucs):
 		object_ucs = self._object_mapping(object_key, object)
 		object_ucs_dn = object_ucs['dn']
 
-		ud.debug(ud.LDAP, ud.INFO, "group_members_sync_from_ucs: type of object_ucs['dn']: %s" % type(object_ucs_dn))
-		ud.debug(ud.LDAP, ud.INFO, "group_members_sync_from_ucs: dn is: %s" % object_ucs_dn)
+		ud.debug(ud.LDAP, ud.INFO, "group_members_sync_from_ucs: dn is: %r" % (object_ucs_dn,))
 		ldap_object_ucs = self.get_ucs_ldap_object(object_ucs_dn)
 
 		if not ldap_object_ucs:
 			ud.debug(ud.LDAP, ud.PROCESS, 'group_members_sync_from_ucs:: The UCS object (%s) was not found. The object was removed.' % object_ucs_dn)
 			return
 
-		ldap_object_ucs_gidNumber = ldap_object_ucs['gidNumber'][0]
-		ucs_members = set(ldap_object_ucs.get('uniqueMember', []))
+		ldap_object_ucs_gidNumber = ldap_object_ucs['gidNumber'][0].decode('UTF-8')
+		ucs_members = set(x.decode('UTF-8') for x in ldap_object_ucs.get('uniqueMember', []))
 		ud.debug(ud.LDAP, ud.INFO, "ucs_members: %s" % ucs_members)
 		if ucs_members:
 			# skip members which have this group as primary group (set same gidNumber)
@@ -1563,7 +1556,7 @@ class s4(univention.s4connector.ucs):
 
 				try:
 					# check if this is members primary group, if true it shouldn't be added to s4
-					if member_object['attributes']['gidNumber'][0] == ldap_object_ucs_gidNumber:
+					if member_object['attributes']['gidNumber'][0] == ldap_object_ucs_gidNumber.encode('UTF-8'):
 						# is primary group
 						continue
 				except (KeyError, IndexError):
@@ -1672,13 +1665,7 @@ class s4(univention.s4connector.ucs):
 
 			modlist_members = [compatible_modstring(member) for member in s4_members]
 			ud.debug(ud.LDAP, ud.ALL, "group_members_sync_from_ucs: modlist: %s" % modlist_members)
-			try:
-				self.lo_s4.lo.modify_s(compatible_modstring(object['dn']), [(ldap.MOD_REPLACE, 'member', modlist_members)])
-			except ldap.SERVER_DOWN:
-				raise
-			except Exception:  # FIXME: which exception is to be caught?
-				ud.debug(ud.LDAP, ud.WARN, "group_members_sync_from_ucs: failed to sync members: (%s,%s)" % (object['dn'], [(ldap.MOD_REPLACE, 'member', modlist_members)]))
-				raise
+			self.lo_s4.lo.modify_s(compatible_modstring(object['dn']), [(ldap.MOD_REPLACE, 'member', modlist_members)])
 
 		return True
 
@@ -1805,8 +1792,7 @@ class s4(univention.s4connector.ucs):
 		ud.debug(ud.LDAP, ud.INFO, "group_members_sync_to_ucs: s4_members %s" % s4_members)
 
 		# search and add members which have this as their primaryGroup
-		group_sid = ldap_object_s4['objectSid'][0]
-		group_rid = group_sid[group_sid.rfind("-") + 1:]
+		group_rid = ldap_object_s4['objectSid'][0].decode('UTF-8').rsplit('-', 1)[-1]
 		prim_members_s4_filter = format_escaped('(primaryGroupID={0!e})', group_rid)
 		prim_members_s4 = self.__search_s4(self.lo_s4.base, ldap.SCOPE_SUBTREE, prim_members_s4_filter)
 		for prim_dn, prim_object in prim_members_s4:
@@ -1977,27 +1963,27 @@ class s4(univention.s4connector.ucs):
 			# user disabled in UCS
 			if 'userAccountControl' in ldap_object_s4 and (int(ldap_object_s4['userAccountControl'][0]) & 2) == 0:
 				# user enabled in S4 -> change
-				res = str(int(ldap_object_s4['userAccountControl'][0]) | 2)
+				res = str(int(ldap_object_s4['userAccountControl'][0]) | 2).encode('ASCII')
 				modlist.append((ldap.MOD_REPLACE, 'userAccountControl', [res]))
 		else:
 			# user enabled in UCS
 			if 'userAccountControl' in ldap_object_s4 and (int(ldap_object_s4['userAccountControl'][0]) & 2) > 0:
 				# user disabled in S4 -> change
-				res = str(int(ldap_object_s4['userAccountControl'][0]) - 2)
+				res = str(int(ldap_object_s4['userAccountControl'][0]) - 2).encode('ASCII')
 				modlist.append((ldap.MOD_REPLACE, 'userAccountControl', [res]))
 
 		# account expires
 		# This value represents the number of 100 nanosecond intervals since January 1, 1601 (UTC). A value of 0 or 0x7FFFFFFFFFFFFFFF (9223372036854775807) indicates that the account never expires.
 		if not ucs_admin_object['userexpiry']:
 			# ucs account not expired
-			if 'accountExpires' in ldap_object_s4 and (int(ldap_object_s4['accountExpires'][0]) != int(9223372036854775807) or ldap_object_s4['accountExpires'][0] == '0'):
+			if 'accountExpires' in ldap_object_s4 and (int(ldap_object_s4['accountExpires'][0]) != int(9223372036854775807) or int(ldap_object_s4['accountExpires'][0]) == 0):
 				# s4 account expired -> change
-				modlist.append((ldap.MOD_REPLACE, 'accountExpires', ['9223372036854775807']))
+				modlist.append((ldap.MOD_REPLACE, 'accountExpires', [b'9223372036854775807']))
 		else:
 			# ucs account expired
-			if 'accountExpires' in ldap_object_s4 and ldap_object_s4['accountExpires'][0] != unix2s4_time(ucs_admin_object['userexpiry']):
+			if 'accountExpires' in ldap_object_s4 and int(ldap_object_s4['accountExpires'][0]) != unix2s4_time(ucs_admin_object['userexpiry']):
 				# s4 account not expired -> change
-				modlist.append((ldap.MOD_REPLACE, 'accountExpires', [str(unix2s4_time(ucs_admin_object['userexpiry']))]))
+				modlist.append((ldap.MOD_REPLACE, 'accountExpires', [str(unix2s4_time(ucs_admin_object['userexpiry'])).encode('ASCII')]))
 
 		if modlist:
 			ud.debug(ud.LDAP, ud.ALL, "disable_user_from_ucs: modlist: %s" % modlist)
@@ -2026,7 +2012,7 @@ class s4(univention.s4connector.ucs):
 				# user enabled in UCS -> change
 				ucs_admin_object['disabled'] = '1'
 				modified = 1
-		if 'accountExpires' in ldap_object_s4 and (int(ldap_object_s4['accountExpires'][0]) == int(9223372036854775807) or ldap_object_s4['accountExpires'][0] == '0'):
+		if 'accountExpires' in ldap_object_s4 and (int(ldap_object_s4['accountExpires'][0]) == int(9223372036854775807) or int(ldap_object_s4['accountExpires'][0]) == 0):
 			# s4 account not expired
 			if ucs_admin_object['userexpiry']:
 				# ucs account expired -> change
@@ -2329,7 +2315,7 @@ class s4(univention.s4connector.ucs):
 				ud.debug(ud.LDAP, ud.PROCESS, "Unable to sync %s (GUID: %s). The object is currently locked." % (object['dn'], objectGUID))
 				return False
 
-		entryUUID = object['attributes'].get('entryUUID', [None])[0]  # may be empty for back_mapped_subobject for leaf object delete_in_s4
+		entryUUID = object['attributes'].get('entryUUID', [None])[0].decode('ASCII')  # may be empty for back_mapped_subobject for leaf object delete_in_s4
 
 		#
 		# ADD
