@@ -44,6 +44,7 @@ import traceback
 import pprint
 from signal import signal, SIGTERM, SIG_DFL
 
+import six
 import ldap
 from ldap.controls.readentry import PostReadControl
 from samba.ndr import ndr_unpack
@@ -773,18 +774,18 @@ class ucs(object):
 			return True
 
 		def recode_attribs(attribs):
+			if six.PY3:
+				return dict((key.decode('UTF-8'), value) for key, value in attribs.items())
 			nattribs = {}
-			for key in attribs.keys():
+			for key, value in attribs.items():
+				key = key.decode('UTF-8')
 				if key in self.ucs_no_recode:
-					nattribs[key] = attribs[key]
+					nattribs[key] = value
 				else:
 					try:
-						nvals = []
-						for val in attribs[key]:
-							nvals.append(unicode(val))
-						nattribs[unicode(key)] = nvals
+						nattribs[key] = [val.decode('UTF-8') for val in value]
 					except UnicodeDecodeError:
-						nattribs[key] = attribs[key]
+						nattribs[key] = value
 
 			return nattribs
 		new = recode_attribs(new)
