@@ -334,7 +334,7 @@ def samaccountname_dn_mapping(s4connector, given_object, dn_mapping_stored, ucso
 			if dn is None:
 				break
 
-			exploded_dn = str2dn(unicode_to_utf8(dn))
+			exploded_dn = str2dn(unicode_to_utf8(dn)) if six.PY2 else str2dn(dn)
 			(_fst_rdn_attribute_utf8, fst_rdn_value_utf8, _flags) = exploded_dn[0][0]
 
 			if ucsobject and object.get('attributes') and object['attributes'].get(ucsattrib):
