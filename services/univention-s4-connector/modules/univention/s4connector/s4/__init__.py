@@ -42,6 +42,7 @@ import calendar
 import pprint
 import warnings
 import string
+import base64
 
 import six
 from six.moves import urllib_parse
@@ -886,10 +887,9 @@ class s4(univention.s4connector.ucs):
 
 	def __encode_GUID(self, GUID):
 		# GUID may be unicode
-		if isinstance(GUID, type(u'')):
-			return GUID.encode('latin1').encode('base64')
-		else:
-			return GUID.encode('base64')
+		if isinstance(GUID, unicode):
+			GUID = GUID.encode('latin1')
+		return base64.b64encode(GUID).decode('ASCII')
 
 	def _get_DN_for_GUID(self, GUID):
 		_d = ud.function('ldap._get_DN_for_GUID')  # noqa: F841
