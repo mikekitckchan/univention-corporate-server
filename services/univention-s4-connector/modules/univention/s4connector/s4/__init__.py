@@ -39,7 +39,6 @@ import re
 import sys
 import time
 import calendar
-import types
 import pprint
 import warnings
 import string
@@ -525,7 +524,7 @@ def decode_list(list, encoding):
 	if not list:
 		return list
 	for val in list:
-		if hasattr(val, 'decode') and not isinstance(val, types.UnicodeType):
+		if hasattr(val, 'decode') and not isinstance(val, unicode):
 			newlist.append(val.decode(encoding))
 		else:
 			newlist.append(val)
@@ -554,7 +553,7 @@ def encode_modlist(list, encoding):
 def decode_modlist(list, encoding):
 	newlist = []
 	for (modtype, attr, values) in list:
-		if hasattr(attr, 'decode') and not isinstance(attr, types.UnicodeType):
+		if hasattr(attr, 'decode') and not isinstance(attr, unicode):
 			newattr = attr.decode(encoding)
 		else:
 			newattr = attr
@@ -592,7 +591,7 @@ def encode_addlist(list, encoding):
 def decode_addlist(list, encoding):
 	newlist = []
 	for (attr, values) in list:
-		if hasattr(attr, 'decode') and not isinstance(attr, types.UnicodeType):
+		if hasattr(attr, 'decode') and not isinstance(attr, unicode):
 			newattr = attr.decode(encoding)
 		else:
 			newattr = attr
@@ -621,7 +620,7 @@ def compatible_addlist(list):
 
 
 def compatible_modstring(string):
-	if hasattr(string, 'decode') and not isinstance(string, types.UnicodeType):
+	if hasattr(string, 'decode') and not isinstance(string, unicode):
 		string = string.decode('latin1')
 	if hasattr(string, 'encode'):
 		string = string.encode('utf8')
