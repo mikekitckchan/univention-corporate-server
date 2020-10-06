@@ -210,7 +210,7 @@ s4_mapping = {
 			univention.s4connector.set_primary_group_user,
 			univention.s4connector.s4.sid_mapping.sid_to_ucs if configRegistry.is_true('connector/s4/mapping/sid_to_ucs', True) and not configRegistry.is_true('connector/s4/mapping/sid', True) else None,
 		])),
-		con_create_attributes=[('userAccountControl', ['512'])],  # accounts synced to samba4 alpha17 had userAccountControl == 544
+		con_create_attributes=[('userAccountControl', [b'512'])],  # accounts synced to samba4 alpha17 had userAccountControl == 544
 		post_con_modify_functions=list(filter(None, [
 			univention.s4connector.s4.sid_mapping.sid_to_s4 if configRegistry.is_true('connector/s4/mapping/sid_to_s4', False) and not configRegistry.is_true('connector/s4/mapping/sid', True) else None,
 			univention.s4connector.s4.password.password_sync_ucs_to_s4,
@@ -522,7 +522,7 @@ s4_mapping = {
 		sync_mode=configRegistry.get('connector/s4/mapping/computer_dc/syncmode', configRegistry.get('connector/s4/mapping/syncmode')),
 		con_create_objectclass=['top', 'computer'],
 		con_create_attributes=[
-			('userAccountControl', ['532480']),
+			('userAccountControl', [b'532480']),
 		],
 		post_con_modify_functions=list(filter(None, [
 			univention.s4connector.s4.sid_mapping.sid_to_s4 if configRegistry.is_true('connector/s4/mapping/sid_to_s4', False) and not configRegistry.is_true('connector/s4/mapping/sid', True) else None,
@@ -584,7 +584,7 @@ s4_mapping = {
 		con_subtree_delete_objects=['objectClass=rIDSet', 'objectClass=connectionPoint', 'objectclass=nTFRSMember'],
 		ignore_filter=ignore_filter_from_attr('cn', 'connector/s4/mapping/windowscomputer/ignorelist'),
 		con_create_objectclass=['top', 'computer'],
-		con_create_attributes=[('userAccountControl', ['4096'])],
+		con_create_attributes=[('userAccountControl', [b'4096'])],
 		#post_con_create_functions=[univention.connector.s4.computers.
 		post_con_modify_functions=list(filter(None, [
 			univention.s4connector.s4.sid_mapping.sid_to_s4 if configRegistry.is_true('connector/s4/mapping/sid_to_s4', False) and not configRegistry.is_true('connector/s4/mapping/sid', True) else None,
