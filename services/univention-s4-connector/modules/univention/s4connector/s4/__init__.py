@@ -482,29 +482,7 @@ def dc_dn_mapping(s4connector, given_object, dn_mapping_stored, isUCSobject):
 
 
 def decode_sid(value):
-	# SID in S4
-	#
-	#   | Byte 1         | Byte 2-7           | Byte 9-12                | Byte 13-16 |
-	#   ----------------------------------------------------------------------------------------------------------------
-	#   | Der erste Wert | Gibt die Laenge    | Hier sind jetzt          | siehe 9-12 |
-	#   | der SID, also  | des restlichen     | die eiegntlichen         |            |
-	#   | der Teil nach  | Strings an, da die | SID Daten.               |            |
-	#   | S-             | SID immer relativ  | In einem int Wert        |            |
-	#   |                | kurz ist, meistens | sind die Werte           |            |
-	#   |                | nur das 2. Byte    | Hexadezimal gespeichert. |            |
-	#
-	sid = 'S-'
-	sid += "%d" % ord(value[0])
-
-	sid_len = ord(value[1])
-
-	sid += "-%d" % ord(value[7])
-
-	for i in range(0, sid_len):
-		res = ord(value[8 + (i * 4)]) + (ord(value[9 + (i * 4)]) << 8) + (ord(value[10 + (i * 4)]) << 16) + (ord(value[11 + (i * 4)]) << 24)
-		sid += "-%u" % res
-
-	return sid
+	return str(ndr_unpack(security.dom_sid, value))
 
 
 def encode_list(list, encoding):
@@ -849,7 +827,7 @@ class s4(univention.s4connector.ucs):
 
 			ud.debug(ud.LDAP, ud.PROCESS, 'Internal group membership cache was created')
 
-		self.s4_sid = decode_sid(self.s4_search_ext_s(s4_ldap_base, ldap.SCOPE_BASE, 'objectclass=domain', ['objectSid'])[0][1]['objectSid'][0].decode('ISO8859-1'))
+		self.s4_sid = decode_sid(self.s4_search_ext_s(s4_ldap_base, ldap.SCOPE_BASE, 'objectclass=domain', ['objectSid'])[0][1]['objectSid'][0])
 
 	def s4_search_ext_s(self, *args, **kwargs):
 		return fix_dn_in_search(self.lo_s4.lo.search_ext_s(*args, **kwargs))
