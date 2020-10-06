@@ -1094,7 +1094,8 @@ class s4(univention.s4connector.ucs):
 				ud.debug(ud.LDAP, ud.WARN, "S4 ignores PAGE_RESULTS")
 				break
 
-		return encode_s4_resultlist(fix_dn_in_search(res))
+		# return encode_s4_resultlist(fix_dn_in_search(res))
+		return fix_dn_in_search(res)
 
 	def __remove_duplicates_with_order_preserving(self, searchResult, idFunction):
 		seen = {}
@@ -1243,7 +1244,8 @@ class s4(univention.s4connector.ucs):
 		for key in object['attributes'].keys():
 			vals = object['attributes'][key][:]
 			if key not in DECODE_IGNORELIST:
-				vals = [self.encode(value) for value in vals]
+				# vals = [self.encode(value) for value in vals]
+				pass
 			object['attributes'][key] = vals
 
 		if deleted_object:  # dn is in deleted-objects-container, need to parse to original dn
