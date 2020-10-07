@@ -1,3 +1,65 @@
+ucs-test (10.0.1-16) unstable; urgency=medium
+
+  * Bug #46745: Add test for disabling DES keys
+
+ -- Julia Bremer <bremer@univention.de>  Tue, 13 Oct 2020 11:48:35 +0200
+
+ucs-test (10.0.1-16) unstable; urgency=medium
+
+  * Bug #51922, 51608: Add saml file permission check
+
+ -- Erik Damrose <damrose@univention.de>  Tue, 13 Oct 2020 11:48:35 +0200
+
+ucs-test (10.0.1-16) unstable; urgency=medium
+
+  * Bug #51904: extend 503test_password_change_next_logon
+
+ -- Julia Bremer <bremer@univention.de>  Tue, 13 Oct 2020 11:48:35 +0200
+
+ucs-test (10.0.1-16) unstable; urgency=medium
+
+  * Bug #52145: 41listener_module_api_test could not deal with longer waiting time - failed on s4 member and slave pdc
+
+ -- Julia Bremer <bremer@univention.de>  Tue, 13 Oct 2020 11:48:35 +0200
+
+ucs-test (10.0.1-16) unstable; urgency=medium
+
+  * Bug #52005: Skip 96rename_domain* they just fail too often and I am out of ideas
+
+ -- Julia Bremer <bremer@univention.de>  Tue, 13 Oct 2020 11:48:35 +0200
+
+ucs-test (10.0.1-16) unstable; urgency=medium
+
+  * Bug #52005: Destroy ucr_test periodically, see if this was what blocked the postrun,
+    Bug #52145: Sleep or 15 seconds if wait_for_drs_replication is run on memberserver with univention-samba installed (workaround for now)
+
+ -- Julia Bremer <bremer@univention.de>  Tue, 13 Oct 2020 11:48:35 +0200
+
+ucs-test (10.0.1-16) unstable; urgency=medium
+
+  * Bug 49823: Added selenium pytest 153_udm_check_properties_of_copied_users2.py
+
+ -- Christian Castens <castens@univention.de>  Tue, 13 Oct 2020 11:48:35 +0200
+
+ucs-test (10.0.1-16) unstable; urgency=medium
+
+  * Bug #51782: Add synchronization of domainpolicy
+
+ -- Erik Damrose <damrose@univention.de>  Tue, 13 Oct 2020 11:48:35 +0200
+
+ucs-test (10.0.1-16) unstable; urgency=medium
+
+  * Bug #45115: fixed retry to 23_apache/30_vhosts
+
+ -- Felix Botner <botner@univention.de>  Tue, 13 Oct 2020 11:48:35 +0200
+
+ucs-test (10.0.1-16) unstable; urgency=medium
+
+  * Bug #51903: extended 10_saml_password_expire and
+    11_saml_user_expire
+
+ -- Felix Botner <botner@univention.de>  Tue, 13 Oct 2020 11:48:35 +0200
+
 ucs-test (10.0.1-15) unstable; urgency=medium
 
   * Bug #50631 Fix test regression
