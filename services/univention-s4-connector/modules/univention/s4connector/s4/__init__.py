@@ -1185,7 +1185,7 @@ class s4(univention.s4connector.ucs):
 
 		return self.__search_s4_partitions(filter=usn_filter, show_deleted=show_deleted)
 
-	def __dn_from_deleted_object(self, object, GUID):
+	def __dn_from_deleted_object(self, object):
 		'''
 		gets dn for deleted object (original dn before the object was moved into the deleted objects container)
 		'''
@@ -1195,7 +1195,7 @@ class s4(univention.s4connector.ucs):
 		last_known_parent = object['attributes'].get('lastKnownParent', [b''])[0].decode('UTF-8')
 		if last_known_parent and '\\0ADEL:' in last_known_parent:
 			dn, attr = self.__get_s4_deleted(last_known_parent)
-			last_known_parent = self.__dn_from_deleted_object({'dn': dn, 'attributes': attr}, GUID)
+			last_known_parent = self.__dn_from_deleted_object({'dn': dn, 'attributes': attr})
 
 		if last_known_parent:
 			ud.debug(ud.LDAP, ud.INFO, "__dn_from_deleted_object: get DN from lastKnownParent (%r) and rdn (%r)" % (last_known_parent, rdn))
@@ -1222,7 +1222,6 @@ class s4(univention.s4connector.ucs):
 		object = {}
 		object['dn'] = self.encode(element[0])
 		deleted_object = False
-		GUID = element[1]['objectGUID'][0]  # don't send this GUID to univention-debug
 
 		# modtype
 		if b'TRUE' in element[1].get('isDeleted', []):
@@ -1230,7 +1229,7 @@ class s4(univention.s4connector.ucs):
 			deleted_object = True
 		else:
 			# check if is moved
-			olddn = self.encode(self._get_DN_for_GUID(GUID))
+			olddn = self.encode(self._get_DN_for_GUID(element[1]['objectGUID'][0]))
 			ud.debug(ud.LDAP, ud.INFO, "object_from_element: olddn: %s" % olddn)
 			if olddn and not compatible_modstring(olddn).lower() == compatible_modstring(self.encode(element[0])).lower() and ldap.explode_rdn(compatible_modstring(olddn).lower()) == ldap.explode_rdn(compatible_modstring(self.encode(element[0])).lower()):
 				object['modtype'] = 'move'
@@ -1250,9 +1249,9 @@ class s4(univention.s4connector.ucs):
 
 		if deleted_object:  # dn is in deleted-objects-container, need to parse to original dn
 			object['deleted_dn'] = object['dn']
-			object['dn'] = self.__dn_from_deleted_object(object, GUID)
+			object['dn'] = self.__dn_from_deleted_object(object)
 			ud.debug(ud.LDAP, ud.PROCESS, "object_from_element: DN of removed object: %r" % (object['dn'],))
-			# self._remove_GUID(GUID) # cache is not needed anymore?
+			# self._remove_GUID(element[1]['objectGUID'][0]) # cache is not needed anymore?
 
 			if not object['dn']:
 				return None
