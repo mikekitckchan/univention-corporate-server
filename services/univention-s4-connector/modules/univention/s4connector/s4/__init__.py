@@ -1021,20 +1021,15 @@ class s4(univention.s4connector.ucs):
 			except Exception:  # FIXME: which exception is to be caught?
 				self._debug_traceback(ud.ERROR, 'Could not get object')  # TODO: remove except block?
 
-	def __get_change_usn(self, object):
+	def __get_change_usn(self, samba_object):
 		'''
-		get change usn as max(uSNCreated,uSNChanged)
+		get change USN as max(uSNCreated, uSNChanged)
 		'''
 		_d = ud.function('ldap.__get_change_usn')  # noqa: F841
-		if not object:
+		if not samba_object:
 			return 0
-		usnchanged = 0
-		usncreated = 0
-		if 'uSNCreated' in object['attributes']:
-			usncreated = int(object['attributes']['uSNCreated'][0])
-		if 'uSNChanged' in object['attributes']:
-			usnchanged = int(object['attributes']['uSNChanged'][0])
-
+		usncreated = int(samba_object['attributes'].get('uSNCreated', [b'0'])[0])
+		usnchanged = int(samba_object['attributes'].get('uSNChanged', [b'0'])[0])
 		return max(usnchanged, usncreated)
 
 	def __search_s4_partitions(self, scope=ldap.SCOPE_SUBTREE, filter='', attrlist=[], show_deleted=False):
