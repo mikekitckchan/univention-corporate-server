@@ -50,7 +50,7 @@ def _unixTimeInverval2seconds(unixTime):
 		ud.debug(ud.LDAP, ud.WARN, 'dc _unixTimeInverval2seconds: Not a valid time format: %s' % unixTime)
 		return 0
 
-	if unixTime[0] < 0:
+	if int(unixTime[0]) < 0:
 		return 0
 
 	if unixTime[1] == 'seconds':
