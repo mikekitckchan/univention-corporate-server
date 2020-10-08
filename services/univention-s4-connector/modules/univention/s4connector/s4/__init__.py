@@ -994,11 +994,8 @@ class s4(univention.s4connector.ucs):
 		return all_values
 
 	def get_s4_members(self, s4_dn, s4_attrs):
-		s4_members = s4_attrs.get('member')
-		if s4_members is None:
-			s4_members = []
-		elif s4_members == []:
-			del s4_attrs['member']
+		s4_members = s4_attrs.get('member', [])
+		if not s4_members:
 			s4_members = self.value_range_retrieval(s4_dn, s4_attrs, 'member')
 			s4_attrs['member'] = s4_members
 		return s4_members
@@ -1341,12 +1338,8 @@ class s4(univention.s4connector.ucs):
 		member_key = 'group'  # FIXME: generate by identify-function ?
 		s4_group_object = self._object_mapping(member_key, {'dn': ucs_group_ldap[0][0], 'attributes': ucs_group_ldap[0][1]}, 'ucs')
 		ldap_object_s4_group = self.get_object(s4_group_object['dn'])
-		rid = "513"  # FIXME: Fallback: should be configurable
-		if ldap_object_s4_group and 'objectSid' in ldap_object_s4_group:
-			sid = ldap_object_s4_group['objectSid'][0]
-			rid = sid[sid.rfind("-") + 1:]
-		else:
-			print("no SID !!!")
+		# FIXME: default value "513" should be configurable
+		rid = ldap_object_s4_group.get('objectSid', [b'513'])[0].rsplit(b'-', 1)[-1]
 
 		# to set a valid primary group we need to:
 		# - check if either the primaryGroupID is already set to rid or
