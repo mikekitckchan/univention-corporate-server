@@ -161,12 +161,16 @@ def check_for_local_group_and_extend_serverctrls_and_sid(s4connector, property_t
 
 def unicode_to_utf8(attrib):
 	'''The inverse of encode_attrib'''
+	if six.PY3:
+		return attrib
 	if isinstance(attrib, bytes):
 		return attrib
 	return attrib.encode('utf8')
 
 
 def encode_attrib(attrib):
+	if six.PY3:
+		return attrib
 	if not attrib or isinstance(attrib, unicode):  # referral or already unicode
 		return attrib
 	return attrib.decode('UTF-8')
@@ -189,6 +193,8 @@ def str2dn(dn):
 
 
 def encode_attriblist(attriblist):
+	if six.PY3:
+		return attriblist
 	if not isinstance(attriblist, list):
 		return encode_attrib(attriblist)
 	else:
@@ -196,6 +202,10 @@ def encode_attriblist(attriblist):
 
 
 def encode_s4_object(s4_object):
+	if six.PY3:
+		if isinstance(s4_object, dict) and 'objectSid' in s4_object:
+			s4_object['objectSid'] = [decode_sid(s4_object['objectSid'][0]).encode('ASCII')]
+		return s4_object
 	if isinstance(s4_object, list):
 		return encode_attriblist(s4_object)
 	else:
@@ -223,6 +233,9 @@ def encode_s4_resultlist(s4_resultlist):
 	'''
 	encode an result from an python-ldap search
 	'''
+	if six.PY3:
+		return [encode_s4_result(x) for x in s4_resultlist]
+
 	for i in range(len(s4_resultlist)):
 		s4_resultlist[i] = encode_s4_result(s4_resultlist[i])
 	return s4_resultlist
@@ -472,6 +485,8 @@ def decode_sid(value):
 
 
 def encode_list(list, encoding):
+	if six.PY3:
+		return list
 	newlist = []
 	if not list:
 		return list
@@ -484,6 +499,8 @@ def encode_list(list, encoding):
 
 
 def decode_list(list, encoding):
+	if six.PY3:
+		return list
 	newlist = []
 	if not list:
 		return list
@@ -496,6 +513,8 @@ def decode_list(list, encoding):
 
 
 def encode_modlist(list_, encoding):
+	if six.PY3:
+		return list_
 	newlist = []
 	for (modtype, attr, values) in list_:
 		if hasattr(attr, 'encode'):
@@ -515,6 +534,8 @@ def encode_modlist(list_, encoding):
 
 
 def decode_modlist(list_, encoding):
+	if six.PY3:
+		return list_
 	newlist = []
 	for (modtype, attr, values) in list_:
 		if hasattr(attr, 'decode') and not isinstance(attr, unicode):
@@ -534,6 +555,8 @@ def decode_modlist(list_, encoding):
 
 
 def encode_addlist(list_, encoding):
+	if six.PY3:
+		return list_
 	newlist = []
 	for (attr, values) in list_:
 		if hasattr(attr, 'encode'):
@@ -553,6 +576,8 @@ def encode_addlist(list_, encoding):
 
 
 def decode_addlist(list_, encoding):
+	if six.PY3:
+		return list_
 	newlist = []
 	for (attr, values) in list_:
 		if hasattr(attr, 'decode') and not isinstance(attr, unicode):
@@ -848,6 +873,8 @@ class s4(univention.s4connector.ucs):
 
 	# encode string to unicode
 	def encode(self, string):
+		if six.PY3:
+			return string
 		try:
 			return unicode(string)
 		except Exception:  # FIXME: which exception is to be caught?
