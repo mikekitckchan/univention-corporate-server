@@ -300,11 +300,9 @@ class configsaver(object):
 	def __init__(self, filename):
 		self.filename = filename
 		try:
-			f = open(filename, 'r')
-			self.config = pickle.load(f)
-		except IOError:
-			self.config = {}
-		except EOFError:
+			with open(filename, 'r') as fd:
+				self.config = pickle.load(fd)
+		except (IOError, EOFError):
 			self.config = {}
 
 	def write(self, ignore=''):
@@ -314,10 +312,8 @@ class configsaver(object):
 
 		signal(SIGTERM, signal_handler)
 
-		f = open(self.filename, 'w')
-		pickle.dump(self.config, f)
-		f.flush()
-		f.close()
+		with open(self.filename, 'w') as fd:
+			pickle.dump(self.config, fd)
 
 		signal(SIGTERM, SIG_DFL)
 
