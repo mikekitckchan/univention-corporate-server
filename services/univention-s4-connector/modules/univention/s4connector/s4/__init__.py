@@ -337,7 +337,7 @@ def samaccountname_dn_mapping(s4connector, given_object, dn_mapping_stored, ucso
 			(_fst_rdn_attribute_utf8, fst_rdn_value_utf8, _flags) = exploded_dn[0][0]
 
 			if ucsobject and object.get('attributes') and object['attributes'].get(ucsattrib):
-				value = object['attributes'][ucsattrib][0]
+				value = object['attributes'][ucsattrib][0].decode('UTF-8')
 			else:
 				value = unicode(fst_rdn_value_utf8)
 
