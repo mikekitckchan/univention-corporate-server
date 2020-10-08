@@ -153,9 +153,9 @@ def check_for_local_group_and_extend_serverctrls_and_sid(s4connector, property_t
 	if __is_groupType_local(groupType):
 		serverctrls.append(LDAPControl(LDB_CONTROL_RELAX_OID, criticality=0))
 
-		sambaSID = object.get('attributes', {}).get('sambaSID', [])[0]
-		ud.debug(ud.LDAP, ud.INFO, "sambaSID: %s" % sambaSID)
-		objectSid = ndr_pack(security.dom_sid('%s' % (sambaSID)))
+		sambaSID = object['attributes']['sambaSID'][0]
+		ud.debug(ud.LDAP, ud.INFO, "sambaSID: %r" % sambaSID)
+		objectSid = ndr_pack(security.dom_sid(sambaSID))
 		add_or_modlist.append(('objectSid', [objectSid]))
 
 
