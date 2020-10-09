@@ -1462,7 +1462,7 @@ class s4(univention.s4connector.ucs):
 		# In S4 the object['dn'] is member of the group sync_object
 
 		ml = []
-		if not self.__compare_lowercase(object['dn'], ucs_group_object['attributes'].get('uniqueMember', [])):
+		if not self.__compare_lowercase(object['dn'].encode('UTF-8'), ucs_group_object['attributes'].get('uniqueMember', [])):
 			ml.append((ldap.MOD_ADD, 'uniqueMember', [object['dn']]))
 
 		if object['attributes'].get('uid'):
@@ -1485,8 +1485,8 @@ class s4(univention.s4connector.ucs):
 		sync groupmembers in S4 if changend one member in AD
 		"""
 		ml = []
-		if not self.__compare_lowercase(object['dn'], s4_group_object['attributes'].get('member', [])):
-			ml.append((ldap.MOD_ADD, 'member', [object['dn']]))
+		if not self.__compare_lowercase(object['dn'].encode('UTF-8'), s4_group_object['attributes'].get('member', [])):
+			ml.append((ldap.MOD_ADD, 'member', [object['dn'].encode('UTF-8')]))
 
 		if ml:
 			ud.debug(ud.LDAP, ud.ALL, "one_group_member_sync_from_ucs: modlist: %s" % ml)
