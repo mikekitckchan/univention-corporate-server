@@ -40,11 +40,7 @@ if [ $? = 0 ]; then
 	exit 0
 fi
 
-# LDAP basis can only be changed via system-setup scripts on a basesystem
 eval "$(univention-config-registry shell)"
-if [ "$server_role" != "basesystem" ]; then
-	exit 1
-fi
 
 if [ "$check_ldap_access" = "1" ]; then
 	exit 0
