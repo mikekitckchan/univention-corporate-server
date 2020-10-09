@@ -2288,7 +2288,7 @@ class s4(univention.s4connector.ucs):
 											to_add = to_really_add
 											a = to_add - current_s4_values
 											if a:
-												modlist.append((ldap.MOD_ADD, s4_attribute, a))
+												modlist.append((ldap.MOD_ADD, s4_attribute, list(a)))
 
 				if not modlist:
 					ud.debug(ud.LDAP, ud.ALL, "nothing to modify: %s" % object['dn'])
