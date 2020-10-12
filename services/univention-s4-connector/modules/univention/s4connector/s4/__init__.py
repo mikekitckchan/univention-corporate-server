@@ -1468,6 +1468,7 @@ class s4(univention.s4connector.ucs):
 
 		if 'memberOf' in object['attributes']:
 			for groupDN in object['attributes']['memberOf']:
+				groupDN = groupDN.decode('UTF-8')
 				s4_object = {'dn': groupDN, 'attributes': self.get_object(groupDN), 'modtype': 'modify'}
 				if not self._ignore_object('group', s4_object):
 					sync_object = self._object_mapping('group', s4_object)
@@ -1483,7 +1484,7 @@ class s4(univention.s4connector.ucs):
 				if dn:
 					groupDN_lower = groupDN.lower()
 					member_cache = self.group_members_cache_con.setdefault(groupDN_lower, set())
-					dn_lower = dn.lower()
+					dn_lower = dn.decode('UTF-8').lower()
 					if dn_lower not in member_cache:
 						ud.debug(ud.LDAP, ud.INFO, "object_memberships_sync_to_ucs: Append user %s to S4 group member cache of %s" % (dn_lower, groupDN_lower))
 						member_cache.add(dn_lower)
@@ -1507,10 +1508,10 @@ class s4(univention.s4connector.ucs):
 
 		ml = []
 		if not self.__compare_lowercase(object['dn'].encode('UTF-8'), ucs_group_object['attributes'].get('uniqueMember', [])):
-			ml.append((ldap.MOD_ADD, 'uniqueMember', [object['dn']]))
+			ml.append((ldap.MOD_ADD, 'uniqueMember', [object['dn'].encode('UTF-8')]))
 
 		if object['attributes'].get('uid'):
-			uid = object['attributes'].get('uid', [])[0]
+			uid = object['attributes']['uid'][0]
 			if not self.__compare_lowercase(uid, ucs_group_object['attributes'].get('memberUid', [])):
 				ml.append((ldap.MOD_ADD, 'memberUid', [uid]))
 
@@ -1718,12 +1719,12 @@ class s4(univention.s4connector.ucs):
 				ucs_object_attr = self.lo.get(member)
 				uid = ucs_object_attr.get('uid')
 				if uid:
-					memberUid_add.append(uid[0])
+					memberUid_add.append(uid[0].decode('UTF-8'))
 			for member in del_members['user']:
 				(_rdn_attribute, uid, _flags) = str2dn(member)[0][0]
 				memberUid_del.append(uid)
 			if uniqueMember_del or memberUid_del:
-				ucs_admin_object.fast_member_remove(uniqueMember_del, memberUid_del, ignore_license=1)
+				ucs_admin_object.fast_member_remove(uniqueMember_del, memberUid_del, ignore_license=True)
 			if uniqueMember_add or memberUid_del:
 				ucs_admin_object.fast_member_add(uniqueMember_add, memberUid_add)
 
