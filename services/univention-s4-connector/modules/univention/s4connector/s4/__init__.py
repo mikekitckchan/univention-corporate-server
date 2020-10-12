@@ -554,7 +554,8 @@ class s4(univention.s4connector.ucs):
 		self.s4_ldap_certificate = s4_ldap_certificate
 
 		self.open_s4()
-		ud.debug(ud.LDAP, ud.ALL, 'Mapping is: %s' % (pprint.pformat(property, indent=4, width=250)))
+		if self._debug_level >= 4:
+			ud.debug(ud.LDAP, ud.ALL, 'Mapping is: %s' % (pprint.pformat(property, indent=4, width=250)))
 
 		for prop in self.property.values():
 			prop.con_default_dn = self.dn_mapped_to_base(prop.con_default_dn, self.lo_s4.base)
