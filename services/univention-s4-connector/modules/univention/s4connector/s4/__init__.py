@@ -1176,7 +1176,7 @@ class s4(univention.s4connector.ucs):
 		else:
 			s4_members = self.get_s4_members(s4_group_object['dn'], ldap_object_s4_group)
 
-			s4_members_lower = map(str.lower, s4_members)
+			s4_members_lower = [x.lower() for x in s4_members]
 			if object['dn'].lower() not in s4_members_lower:  # add as member
 				s4_members.append(object['dn'])
 				ud.debug(ud.LDAP, ud.INFO, "primary_group_sync_from_ucs: primary Group needs change of membership in S4")
