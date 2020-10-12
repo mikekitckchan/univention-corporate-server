@@ -1,3 +1,9 @@
+univention-s4-connector (14.1.0-1) unstable; urgency=medium
+
+  * 
+
+ -- Florian Best <best@univention.de>  Mon, 12 Oct 2020 12:28:24 +0200
+
 univention-s4-connector (14.0.2-3) unstable; urgency=medium
 
   * Bug #46745: Replace DES keys with Dummy hash type if missing (filled with NT hash)
