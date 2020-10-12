@@ -840,7 +840,7 @@ class s4(univention.s4connector.ucs):
 		if not s4_members:
 			s4_members = self.value_range_retrieval(s4_dn, s4_attrs, 'member')
 			s4_attrs['member'] = s4_members
-		return s4_members
+		return [x.decode('UTF-8') for x in s4_members]
 
 	def get_object(self, dn, attrlist=None):
 		"""Get an object from S4-LDAP"""
@@ -1180,7 +1180,7 @@ class s4(univention.s4connector.ucs):
 			if object['dn'].lower() not in s4_members_lower:  # add as member
 				s4_members.append(object['dn'])
 				ud.debug(ud.LDAP, ud.INFO, "primary_group_sync_from_ucs: primary Group needs change of membership in S4")
-				self.lo_s4.lo.modify_s(s4_group_object['dn'], [(ldap.MOD_REPLACE, 'member', s4_members)])
+				self.lo_s4.lo.modify_s(s4_group_object['dn'], [(ldap.MOD_REPLACE, 'member', [x.encode('UTF-8') for x in s4_members])])
 
 			# set new primary group
 			ud.debug(ud.LDAP, ud.INFO, "primary_group_sync_from_ucs: changing primary Group in S4")
@@ -1201,7 +1201,7 @@ class s4(univention.s4connector.ucs):
 			if not is_member:
 				# remove S4 member from previous group
 				ud.debug(ud.LDAP, ud.INFO, "primary_group_sync_from_ucs: remove S4 member from previous group")
-				self.lo_s4.lo.modify_s(s4_group[0][0], [(ldap.MOD_DELETE, 'member', [object['dn']])])
+				self.lo_s4.lo.modify_s(s4_group[0][0], [(ldap.MOD_DELETE, 'member', [object['dn'].encode('UTF-8')])])
 
 			return True
 
@@ -1448,7 +1448,7 @@ class s4(univention.s4connector.ucs):
 			s4_members -= del_members  # Note: del_members are case sensitive
 			ud.debug(ud.LDAP, ud.INFO, "group_members_sync_from_ucs: members result: %r" % s4_members)
 
-			self.lo_s4.lo.modify_s(object['dn'], [(ldap.MOD_REPLACE, 'member', s4_members)])
+			self.lo_s4.lo.modify_s(object['dn'], [(ldap.MOD_REPLACE, 'member', [x.encode('UTF-8') for x in s4_members])])
 
 		return True
 
