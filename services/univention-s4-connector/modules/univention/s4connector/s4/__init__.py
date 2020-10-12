@@ -2123,8 +2123,9 @@ class s4(univention.s4connector.ucs):
 							if attr in (self.property[property_type].attributes[attribute].con_attribute, self.property[property_type].attributes[attribute].con_other_attribute):
 								addlist.append((attr, value))
 				if hasattr(self.property[property_type], 'con_create_extenstions') and self.property[property_type].con_create_extenstions is not None:
-					for f in self.property[property_type].con_create_extenstions:
-						f(self, property_type, object, addlist, ctrls)
+					for con_create_extension in self.property[property_type].con_create_extenstions:
+						ud.debug(ud.LDAP, ud.INFO, "Call con_create_extenstions: %s" % con_create_extension)
+						con_create_extension(self, property_type, object, addlist, ctrls)
 				if hasattr(self.property[property_type], 'post_attributes') and self.property[property_type].post_attributes is not None:
 					for attr, value in object['attributes'].items():
 						for attribute in self.property[property_type].post_attributes.keys():
@@ -2173,8 +2174,9 @@ class s4(univention.s4connector.ucs):
 					ud.debug(ud.LDAP, ud.INFO, "group_members_cache_con[%s]: {}" % (object['dn'].lower()))
 
 				if hasattr(self.property[property_type], "post_con_create_functions"):
-					for f in self.property[property_type].post_con_create_functions:
-						f(self, property_type, object)
+					for post_con_create_function in self.property[property_type].post_con_create_functions:
+						ud.debug(ud.LDAP, ud.INFO, "Call post_con_create_functions: %s" % post_con_create_function)
+						post_con_create_function(self, property_type, object)
 
 				ud.debug(ud.LDAP, ud.INFO, "and modify: %s" % object['dn'])
 				if modlist:
@@ -2187,10 +2189,10 @@ class s4(univention.s4connector.ucs):
 						raise
 
 				if hasattr(self.property[property_type], "post_con_modify_functions"):
-					for f in self.property[property_type].post_con_modify_functions:
-						ud.debug(ud.LDAP, ud.INFO, "Call post_con_modify_functions: %s" % f)
-						f(self, property_type, object)
-						ud.debug(ud.LDAP, ud.INFO, "Call post_con_modify_functions: %s (done)" % f)
+					for post_con_modify_function in self.property[property_type].post_con_modify_functions:
+						ud.debug(ud.LDAP, ud.INFO, "Call post_con_modify_functions: %s" % post_con_modify_function)
+						post_con_modify_function(self, property_type, object)
+						ud.debug(ud.LDAP, ud.INFO, "Call post_con_modify_functions: %s (done)" % post_con_modify_function)
 
 		#
 		# MODIFY
@@ -2347,10 +2349,10 @@ class s4(univention.s4connector.ucs):
 						raise
 
 				if hasattr(self.property[property_type], "post_con_modify_functions"):
-					for f in self.property[property_type].post_con_modify_functions:
-						ud.debug(ud.LDAP, ud.INFO, "Call post_con_modify_functions: %s" % f)
-						f(self, property_type, object)
-						ud.debug(ud.LDAP, ud.INFO, "Call post_con_modify_functions: %s (done)" % f)
+					for post_con_modify_function in self.property[property_type].post_con_modify_functions:
+						ud.debug(ud.LDAP, ud.INFO, "Call post_con_modify_functions: %s" % post_con_modify_function)
+						post_con_modify_function(self, property_type, object)
+						ud.debug(ud.LDAP, ud.INFO, "Call post_con_modify_functions: %s (done)" % post_con_modify_function)
 		#
 		# DELETE
 		#
