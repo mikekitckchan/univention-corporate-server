@@ -2088,7 +2088,10 @@ class s4(univention.s4connector.ucs):
 				ud.debug(ud.LDAP, ud.PROCESS, "Unable to sync %s (GUID: %s). The object is currently locked." % (object['dn'], objectGUID))
 				return False
 
-		entryUUID = object['attributes'].get('entryUUID', [None])[0].decode('ASCII')  # may be empty for back_mapped_subobject for leaf object delete_in_s4
+		try:
+			entryUUID = object['attributes']['entryUUID'][0].decode('ASCII')
+		except KeyError:
+			entryUUID = None  # may be empty for back_mapped_subobject for leaf object delete_in_s4
 
 		#
 		# ADD
