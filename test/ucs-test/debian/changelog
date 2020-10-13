@@ -1,4 +1,4 @@
-ucs-test (10.0.1-17) unstable; urgency=medium
+ucs-test (10.1.0-1) unstable; urgency=medium
 
   * Bug #50631: Adjust tests/52_s4connector python interpreter version
 
