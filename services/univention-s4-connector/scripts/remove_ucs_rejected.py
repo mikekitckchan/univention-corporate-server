@@ -34,9 +34,11 @@
 from __future__ import print_function
 
 import os
-import sqlite3
 import sys
 from argparse import ArgumentParser
+
+import univention.s4connector.s4
+import univention.uldap
 
 
 class ObjectNotFound(BaseException):
@@ -44,19 +46,15 @@ class ObjectNotFound(BaseException):
 
 
 def remove_ucs_rejected(ucs_dn):
-	cache_db = sqlite3.connect('/etc/univention/connector/s4internal.sqlite')
-	c = cache_db.cursor()
-	c.execute("SELECT key FROM 'UCS rejected' WHERE value=?", [str(ucs_dn)])
-	filenames = c.fetchall()
-	if not filenames:
-		raise ObjectNotFound
-	for filename in filenames:
-		if filename:
-			if os.path.exists(filename[0]):
-				os.remove(filename[0])
-	c.execute("DELETE FROM 'UCS rejected' WHERE value=?", [str(ucs_dn)])
-	cache_db.commit()
-	cache_db.close()
+	s4 = univention.s4connector.s4.s4.main()
+	for filename, rejected_dn in s4.list_rejected_ucs():
+		if univention.uldap.access.compare_dn(ucs_dn, rejected_dn):
+			if os.path.exists(filename):
+				os.remove(filename)
+			s4._remove_rejected_ucs(filename)
+			return
+
+	raise ObjectNotFound()
 
 
 if __name__ == '__main__':

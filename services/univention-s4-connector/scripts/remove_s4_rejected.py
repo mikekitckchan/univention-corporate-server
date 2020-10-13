@@ -31,9 +31,11 @@
 # /usr/share/common-licenses/AGPL-3; if not, see
 # <https://www.gnu.org/licenses/>.
 
-import sqlite3
 import sys
 from argparse import ArgumentParser
+
+import univention.s4connector.s4
+import univention.uldap
 
 
 class ObjectNotFound(BaseException):
@@ -41,15 +43,13 @@ class ObjectNotFound(BaseException):
 
 
 def remove_s4_rejected(s4_dn):
-	cache_db = sqlite3.connect('/etc/univention/connector/s4internal.sqlite')
-	c = cache_db.cursor()
-	c.execute("SELECT key FROM 'S4 rejected' WHERE value=?", [str(s4_dn)])
-	key = c.fetchone()
-	if not key:
-		raise ObjectNotFound
-	c.execute("DELETE FROM 'S4 rejected' WHERE value=?", [str(s4_dn)])
-	cache_db.commit()
-	cache_db.close()
+	s4 = univention.s4connector.s4.s4.main()
+	for key, rejected_dn in s4.list_rejected():
+		if univention.uldap.access.compare_dn(s4_dn, rejected_dn):
+			s4._remove_rejected(key)
+			return
+
+	raise ObjectNotFound()
 
 
 if __name__ == '__main__':
