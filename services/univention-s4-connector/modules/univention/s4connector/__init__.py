@@ -245,7 +245,7 @@ class configdb(object):
 		for i in [1, 2]:
 			try:
 				cur = self._dbcon.cursor()
-				cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='%s';" % section)
+				cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name=?;", (section,))
 				rows = cur.fetchone()
 				cur.close()
 				if rows:
