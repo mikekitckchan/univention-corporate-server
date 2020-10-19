@@ -51,7 +51,12 @@ class CLIClient(object):
 		args = parser.parse_known_args()[0]
 
                 list_choices = ['all', 'list']
-                parser.add_argument("-t", dest='tests', nargs='+', choices=list_choices, default='all', help='Choose tests to run by using "{-t <testname>}" or "-t all" to execute all diagnostic checks')
+                parser.add_argument(
+                        "-t", dest='tests', choices=list_choices,
+                        default='all', help='''Choose tests to run by using `-t
+                        <testname>`, where <testname> can be any of the tests
+                        from `-t list` or run `-t all` to execute all
+                        diagnostic checks''')
 
 		if args.help:
 			parser.print_help()
