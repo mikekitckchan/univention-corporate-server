@@ -111,6 +111,15 @@ do
 			exit 0
 			;;
 		*)
+			#while true
+			#do
+			#if [ $1 == '*.{inst,uinst}' ]; then
+				#add script name to a list
+				#shift
+			#else
+			#	break
+			#break
+			#fi
 			echo ""
 			echo "One or more of the given arguments do not exist for this script."
 			echo ""
