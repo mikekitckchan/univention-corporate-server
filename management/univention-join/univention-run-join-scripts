@@ -79,6 +79,19 @@ failed_message () {
 	exit 1
 }
 
+valid_argument() {
+	VALID_ARGS=("-dcaccount" "-dcpwd" "--ask-pass" "--force" "--run-scripts" "--version" "--help" "-h" "-?")
+	for i in "${VALID_ARGS[@]}";
+	do
+		if [ "$i" == "$1" ]; then
+			return 0
+		fi
+	done
+	return 1
+}
+
+SCRIPTS=(/usr/lib/univention-install/*.{inst,uinst})
+
 while [ $# -gt 0 ]
 do
 	case "$1" in
@@ -100,6 +113,7 @@ do
 			;;
 		"--run-scripts")
 			RUN_SCRIPTS=1
+			SCRIPTS=()
 			shift
 			;;
 		"--version")
@@ -111,19 +125,26 @@ do
 			exit 0
 			;;
 		*)
-			#while true
-			#do
-			#if [ $1 == '*.{inst,uinst}' ]; then
-				#add script name to a list
-				#shift
-			#else
-			#	break
-			#break
-			#fi
-			echo ""
-			echo "One or more of the given arguments do not exist for this script."
-			echo ""
-			display_help && exit 1
+			if [ "$RUN_SCRIPTS" = "1" ] && ! valid_argument "$1"; then
+				script="/usr/lib/univention-install/$1"
+				if [ ! -e "$script" ]; then
+				# expand .inst or .uinst suffix if not specified
+					test -e "$script.uinst" && script=$script.uinst
+					test -e "$script.inst" && script=$script.inst
+				fi
+				if [ ! -e "$script" ]; then
+				# error ... join script does not exist
+				failed_message "The given joinscript '$iscript' does not exists"
+				fi
+				# fill list of join scripts to be executed
+				SCRIPTS+=("$script")
+				shift
+			else
+				echo ""
+				echo "One or more of the given arguments do not exist for this script."
+				echo ""
+				display_help && exit 1
+			fi
 			;;
 	esac
 done
@@ -201,30 +222,7 @@ if [ ! "$server_role" = "domaincontroller_master" ] || [ -n "$ASK_PASS" ] ; then
 	fi
 fi
 
-# get list of join scripts to be executed
-# fallback to all existing join scripts
 LC_COLLATE="C"
-SCRIPTS=(/usr/lib/univention-install/*.{inst,uinst})
-if [ -n "$RUN_SCRIPTS" ]; then
-	# evaluate specified join scripts
-	SCRIPTS=()
-	for iscript in "$@"
-	do
-		# guess full path of join script
-		iscript="/usr/lib/univention-install/$iscript"
-		if [ ! -e "$iscript" ]; then
-			# expand .inst or .uinst suffix if not specified
-			test -e "$iscript.uinst" && iscript=$iscript.uinst
-			test -e "$iscript.inst" && iscript=$iscript.inst
-		fi
-		if [ ! -e "$iscript" ]; then
-			# error ... join script does not exist
-			failed_message "The given joinscript '$iscript' does not exists"
-		fi
-		SCRIPTS+=("$iscript")
-	done
-fi
-
 # Save STDOUT to fd3, redirect to logfile
 exec 3>&1 >>/var/log/univention/join.log 2>&1
 
