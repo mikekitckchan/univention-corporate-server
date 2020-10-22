@@ -1,4 +1,4 @@
-univention-directory-listener (14.0.1-0) unstable; urgency=medium
+univention-directory-listener (14.0.1-1) unstable; urgency=medium
 
   * Bug #43686: Convert UDL from runit to systemd
 
