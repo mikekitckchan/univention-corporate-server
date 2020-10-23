@@ -1,3 +1,9 @@
+univention-base-files (9.0.2-2) unstable; urgency=medium
+
+  * Bug #43686: Add function to check if a service exists ans is not masked
+
+ -- Jürn Brodersen <brodersen@univention.de>  Fri, 23 Oct 2020 14:39:53 +0200
+
 univention-base-files (9.0.2-1) unstable; urgency=medium
 
   * Bug #42374: Replace legacy Master/Slave wording by
