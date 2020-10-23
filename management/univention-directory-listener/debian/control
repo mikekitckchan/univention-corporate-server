@@ -31,7 +31,7 @@ Depends:
  python-univention-namespace,
  python2.7-univention,
  python2.7-univention-debug,
- shell-univention-lib (>= 1.0.6),
+ shell-univention-lib (>= 9.0.2-2),
  univention-base-files,
  ${misc:Depends},
  ${python3:Depends},

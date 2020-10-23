@@ -30,6 +30,7 @@
 # <https://www.gnu.org/licenses/>.
 
 . /usr/share/univention-lib/ucr.sh
+. /usr/share/univention-lib/base.sh
 
 if is_ucr_true system/setup/boot/installer; then
 	# debian installer is active -> a restart of the services is not necessary
@@ -41,9 +42,6 @@ if [ -x /etc/init.d/univention-directory-notifier ]; then
 	invoke-rc.d univention-directory-notifier crestart
 fi
 
-if [ -n "$(systemctl list-unit-files  --type=service --state enabled,disabled \
-		--no-legend univention-directory-listener.service)" ]; then
-	systemctl try-restart univention-directory-listener
-fi
+service_can_be_controlled univention-directory-listener && systemctl try-restart univention-directory-listener
 
 exit 0

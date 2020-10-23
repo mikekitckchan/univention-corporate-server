@@ -30,7 +30,7 @@ Depends:
  python-univention-lib (>= 8.0.1-33),
  python-univention-updater (= ${source:Version}),
  python3-univention-updater (= ${source:Version}),
- shell-univention-lib,
+ shell-univention-lib (>= 9.0.2-2),
  univention-admin-diary-client (>= 1.0.0-29),
  univention-config,
  univention-directory-policy,

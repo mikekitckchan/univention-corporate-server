@@ -20,7 +20,7 @@ Depends:
  python-univention-heimdal,
  python-univention-lib (>= 1.0.25-1),
  python3-ldap,
- shell-univention-lib (>= 3.0.26-41),
+ shell-univention-lib (>= 9.0.2-2),
  univention-base-files,
  univention-config,
  univention-directory-listener,

@@ -30,8 +30,9 @@
 # /usr/share/common-licenses/AGPL-3; if not, see
 # <https://www.gnu.org/licenses/>.
 
+. /usr/share/univention-lib/base.sh
 
-[ -n "$(systemctl list-unit-files --type=service --no-legend --state enabled,disabled univention-directory-listener.service)" ] || exit 0
+service_can_be_controlled univention-directory-listener || exit 0
 
 . /etc/network/ucs-network-tools
 ucs_ignore_interface
