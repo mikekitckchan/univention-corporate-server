@@ -38,13 +38,18 @@ import os
 import time
 import univention.debug
 
-import ldb
-from samba.ndr import ndr_pack
-from samba.dcerpc import security
-from samba.idmap import IDmapDB
-from samba.auth import system_session
-from samba.param import LoadParm
-from samba.provision import setup_idmapdb
+import six
+if not six.PY2:
+	import ldb
+	from samba.ndr import ndr_pack
+	from samba.dcerpc import security
+	from samba.idmap import IDmapDB
+	from samba.auth import system_session
+	from samba.param import LoadParm
+	from samba.provision import setup_idmapdb
+else:
+	class ldb(object):
+		LdbError = None
 
 name = 'samba4-idmap'
 description = 'Update local IDmap entries'
@@ -53,10 +58,11 @@ attributes = ['uid', 'cn', 'sambaSID', 'univentionSamba4SID', 'uidNumber', 'gidN
 modrdn = '1'
 
 # Globals
-lp = LoadParm()
-listener.setuid(0)
-lp.load('/etc/samba/smb.conf')
-listener.unsetuid()
+if not six.PY2:
+	lp = LoadParm()
+	listener.setuid(0)
+	lp.load('/etc/samba/smb.conf')
+	listener.unsetuid()
 
 sidAttribute = 'sambaSID'
 if listener.configRegistry.is_false('connector/s4/mapping/sid', False):
@@ -122,6 +128,13 @@ open_idmap.instance = None
 
 
 def rename_or_modify_idmap_entry(old_sambaSID, new_sambaSID, xidNumber, type_string, idmap=None):
+	if six.PY2:
+		import subprocess
+		cmd = ['/usr/lib/univention-directory-listener/system/samba4-idmap.py', '--modify-entry', old_sambaSID, '--newSID', new_sambaSID, '--xidNumber', xidNumber, '--xidType', type_string]
+		p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+		(stdout, stderr) = p1.communicate()
+		return
+
 	if not idmap:
 		# need to open idmap here in case it has been removed since the module  was loaded
 		idmap = open_idmap()
@@ -190,6 +203,13 @@ def modify_idmap_entry(sambaSID, xidNumber, type_string, idmap=None):
 
 
 def add_or_modify_idmap_entry(sambaSID, xidNumber, type_string, idmap=None):
+	if six.PY2:
+		import subprocess
+		cmd = ['/usr/lib/univention-directory-listener/system/samba4-idmap.py', '--add-entry', sambaSID, '--xidNumber', xidNumber, '--xidType', type_string]
+		p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+		(stdout, stderr) = p1.communicate()
+		return
+
 	if not idmap:
 		# need to open idmap here in case it has been removed since the module  was loaded
 		idmap = open_idmap()
@@ -218,6 +238,13 @@ def add_or_modify_idmap_entry(sambaSID, xidNumber, type_string, idmap=None):
 
 
 def remove_idmap_entry(sambaSID, xidNumber, type_string, idmap=None):
+	if six.PY2:
+		import subprocess
+		cmd = ['/usr/lib/univention-directory-listener/system/samba4-idmap.py', '--remove-entry', sambaSID, '--xidNumber', xidNumber, '--xidType', type_string]
+		p1 = subprocess.Popen(cmd, stdout=subprocess.PIPE)
+		(stdout, stderr) = p1.communicate()
+		return
+
 	if not idmap:
 		# need to open idmap here in case it has been removed since the module  was loaded
 		idmap = open_idmap()
@@ -258,7 +285,10 @@ def initialize():
 
 def handler(dn, new, old, operation):
 
-	idmap = open_idmap()
+	if not six.PY2:
+		idmap = open_idmap()
+	else:
+		idmap = None
 	if new:
 		try:
 			if b'sambaSamAccount' in new['objectClass']:
@@ -321,24 +351,11 @@ def handler(dn, new, old, operation):
 			univention.debug.debug(univention.debug.LISTENER, univention.debug.ERROR, "%s: entry for %r could not be updated" % (name, old[sidAttribute][0]))
 
 
-if __name__ == '__main__':
-	from argparse import ArgumentParser
-	import sys
+def direct_resync():
 	from univention.config_registry import ConfigRegistry
 	import subprocess
 	from ldif import LDIFParser
 	import io
-
-	parser = ArgumentParser()
-	parser.add_argument(
-		"--direct-resync", action="store_true", dest="direct_resync", default=False,
-		help="Filter the output of univention-ldapsearch through this module"
-	)
-	options = parser.parse_args()
-
-	if not options.direct_resync:
-		parser.error("The option --direct-resync is required to run this module directly")
-		sys.exit(1)
 
 	univention.debug.init("stderr", univention.debug.NO_FLUSH, univention.debug.NO_FUNCTION)
 	ucr = ConfigRegistry()
@@ -362,3 +379,33 @@ if __name__ == '__main__':
 	parser.parse()
 
 	subprocess.call(['net', 'cache', 'flush'])
+
+
+if __name__ == '__main__':
+	from argparse import ArgumentParser
+	import sys
+
+	parser = ArgumentParser()
+	parser.add_argument(
+		"--direct-resync", action="store_true", dest="direct_resync", default=False,
+		help="Filter the output of univention-ldapsearch through this module"
+	)
+	parser.add_argument("--add-entry")
+	parser.add_argument("--modify-entry")
+	parser.add_argument("--remove-entry")
+	parser.add_argument("--xidType")
+	parser.add_argument("--newSID")
+	parser.add_argument("--xidNumber")
+	options = parser.parse_args()
+
+	if options.direct_resync:
+		direct_resync()
+	elif options.add_entry:
+		add_or_modify_idmap_entry(options.add_entry, options.xidNumber, options.xidType)
+	elif options.modify_entry:
+		rename_or_modify_idmap_entry(options.modify_entry, options.newSID, options.xidNumber, options.xidType)
+	elif options.remove_entry:
+		remove_idmap_entry(options.remove_entry, options.xidNumber, options.xidType)
+	else:
+		parser.error("The option --direct-resync is required to run this module directly")
+		sys.exit(1)
