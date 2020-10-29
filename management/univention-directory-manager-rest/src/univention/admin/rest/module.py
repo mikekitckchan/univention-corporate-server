@@ -74,6 +74,7 @@ import xml.etree.cElementTree as ET
 import xml.dom.minidom
 from genshi import XML
 from genshi.output import HTMLSerializer
+from multiprocessing import Manager
 
 from univention.management.console.config import ucr
 from univention.management.console.log import MODULE
@@ -108,6 +109,8 @@ MAX_WORKERS = 35
 
 if 422 not in tornado.httputil.responses:
 	tornado.httputil.responses[422] = 'Unprocessable Entity'  # Python 2 is missing this status code
+
+m = Manager()
 
 
 def add_sanitizers(type_, sanitizers):
@@ -3456,7 +3459,7 @@ class PolicyResultContainer(PolicyResultBase):
 class Operations(Resource):
 	"""GET /udm/progress/$progress-id (get the progress of a started operation like move, report, maybe add/put?, ...)"""
 
-	queue = {}
+	queue = m.dict()
 
 	def get(self, progress):
 		progressbars = self.queue.get(self.request.user_dn, {})
