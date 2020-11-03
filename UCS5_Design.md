@@ -53,11 +53,12 @@
   - [ ] Check box-shadow on buttons
   - [ ] Check, decide and use the css classes for the different button types
 - [ ] implement univention_ucs_ui_2 > Komponenten: EingabeFelder
-  - [ ] TextBox/Select/TextArea
+  - [x] TextBox/Select/TextArea
     - mostly implemented. listing missing things
     - [ ] when removing input from an required field the label gets immediately red but not the border of the input field (this should be synced in either direction)
     - [ ] Disabled/Error state: icons for dropdown etc have to be grey/red too
   - [x] CheckBox/Radio
+    - [ ] the disabled state only changes the opacity atm. In the screens the color changes to grey. This is kinda annoying with the svgs and smooth interpolation between the colors
   - [ ] Switch
     - [ ] Discussion: do we need a Switch widget?
       - [ ] implement if yes
