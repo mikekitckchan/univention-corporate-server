@@ -87,7 +87,6 @@ define([
 			this.contentContainer = put('div.contentWrapper');
 			put(this.contentContainer, 'h2', this.getTitle());
 			this._createSteps();
-			window.t = this;
 			return this.contentContainer;
 		},
 
