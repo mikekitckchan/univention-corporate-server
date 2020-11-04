@@ -1,0 +1,40 @@
+@!@
+import json
+
+fqdn = configRegistry.get('umc/saml/sp-server', '%s.%s' % (configRegistry['hostname'], configRegistry['domainname']))
+
+config = {
+	"security": {
+		"nameIdEncrypted": False,
+		"authnRequestsSigned": True,
+		"logoutRequestSigned": True,
+		"logoutResponseSigned": True,
+		"signMetadata": True,
+		"metadataValidUntil": "",
+		"wantMessagesSigned": True,
+		"wantAssertionsSigned": True,
+		"wantNameId": True,
+		"wantNameIdEncrypted": False,
+		"wantAssertionsEncrypted": False,
+		"signatureAlgorithm": "http://www.w3.org/2001/04/xmldsig-more#rsa-sha256",
+		"digestAlgorithm": "http://www.w3.org/2001/04/xmlenc#sha256"
+	},
+	"contactPerson": dict(
+		(type_, {
+			"givenName": configRegistry.get('umc/saml/contact_person/%s/givenname' % (type_,), fqdn),
+			"emailAddress": configRegistry.get('umc/saml/contact_person/%s/mail' % (type_,), 'saml@%s' % (fqdn,)),
+			#"surname": configRegistry.get('umc/saml/contact_person/%s/surname' % (type_,), ''),
+			#"company": configRegistry.get('umc/saml/contact_person/%s/company' % (type_,), ''),
+		}) for type_ in ('technical', 'support')
+	),
+	"organization": {
+		"en-US": {
+			"name": configRegistry.get('umc/saml/organization/name', 'Univention Management Console %s' % (fqdn,)),
+			"displayname": configRegistry.get('umc/saml/organization/display-name', 'Univention Management Console %s' % (fqdn,)),
+			"url": configRegistry.get('umc/saml/organization/url', 'https://%s/' % (fqdn,)),
+		}
+	}
+}
+
+print(json.dumps(config, sort_keys=True, indent=4))
+@!@

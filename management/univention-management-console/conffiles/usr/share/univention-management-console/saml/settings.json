@@ -1,0 +1,112 @@
+@!@
+# http://pysaml2.readthedocs.org/en/latest/howto/config.html
+import json
+from cryptography import x509
+from cryptography.hazmat.primitives.serialization import load_pem_private_key
+from cryptography.hazmat.primitives.serialization import Encoding
+from cryptography.hazmat.backends import default_backend
+
+from univention.config_registry.interfaces import Interfaces
+
+
+class CertDoesNotMatchPrivateKeyError(Exception):
+	pass
+
+
+def public_key_compare(key1, key2):
+	pn1 = key1.public_numbers()
+	pn2 = key2.public_numbers()
+	return pn1.e == pn2.e and pn1.n == pn2.n
+
+
+def get_cert():
+	'''
+	The cert file can contain multiple certs (e.g. with lets encrypt)
+	saml expects only the one certificate that matches the private key
+	'''
+	with open(cert_filename, 'rb') as cert_file:
+		cert = x509.load_pem_x509_certificate(cert_file.read(), default_backend())
+		public_cert_key = cert.public_key()
+	with open(key_filename, 'rb') as key_file:
+		private_key = key_file.read()
+		public_key = load_pem_private_key(private_key, password=None, backend=default_backend()).public_key()
+	if public_key_compare(public_cert_key, public_key):
+		return cert.public_bytes(Encoding.PEM)
+	raise CertDoesNotMatchPrivateKeyError(
+		'Cert: "{}" does not match private key: "{}"'.format(cert_filename, key_filename)
+	)
+
+def _unwrap_cert(x):
+	x = x.replace('\n', '')
+	if 'BEGIN CERTIFICATE' in x:
+		x = x.partition('-----BEGIN CERTIFICATE-----')[-1].partition('-----END CERTIFICATE-----')[0]
+	if 'BEGIN RSA PRIVATE KEY' in x:
+		x = x.partition('-----BEGIN RSA PRIVATE KEY-----')[-1].partition('-----END RSA PRIVATE KEY-----')[0]
+	return x
+
+
+if configRegistry.get('umc/saml/sp-server'):
+	fqdn = configRegistry.get('umc/saml/sp-server')
+	addresses = [fqdn]
+else:
+	i = Interfaces(configRegistry)
+	try:
+		fqdn = '%s.%s' % (configRegistry['hostname'], configRegistry['domainname'])
+	except KeyError:
+		fqdn = ''
+	addresses = [fqdn]
+	addresses.extend([y['address'] for x, y in i.all_interfaces if y and y.get('address')])
+
+key_filename = "/etc/univention/ssl/%s/private.key" % (fqdn,)
+cert_filename = "/etc/univention/ssl/%s/cert.pem" % (fqdn,)
+bases = ['%s://%s/univention/saml' % (scheme, addr) for addr in addresses for scheme in ('https', 'http')]
+
+BINDING_HTTP_POST = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-POST'
+BINDING_HTTP_REDIRECT = 'urn:oasis:names:tc:SAML:2.0:bindings:HTTP-Redirect'
+NAME_FORMAT_URI =  'urn:oasis:names:tc:SAML:2.0:attrname-format:uri'
+
+config = {
+	"strict": configRegistry.is_true('umc/saml/strict', True),
+	"debug": configRegistry.is_true('umc/saml/debug', False),
+	"sp": {
+		"entityId": "https://%s/univention/saml/metadata" % (fqdn,),
+		"assertionConsumerService": {
+			"url": '%s/' % (bases[0],),
+			"binding": BINDING_HTTP_POST,
+		},
+		"singleLogoutService": {
+			"url": '%s/slo/' % (bases[0],),
+			"binding": BINDING_HTTP_REDIRECT,
+		},
+		"NameIDFormat": NAME_FORMAT_URI,  # "urn:oasis:names:tc:SAML:1.1:nameid-format:unspecified",
+		"attributeConsumingService": {
+			"serviceName": "UMC SP",
+			"serviceDescription": "Univention Management Console SAML2.0 Service Provider",
+			"requestedAttributes": [
+				{
+					"name": "urn:oid:0.9.2342.19200300.100.1.1",
+					"isRequired": True,
+					"nameFormat": NAME_FORMAT_URI,
+					"friendlyName": "uid",
+					# "attributeValue": [],
+				}
+			]
+		},
+		"x509cert": _unwrap_cert(get_cert()),
+		"privateKey": _unwrap_cert(open(key_filename).read()),  # FIXME: o+r
+	},
+	"idp": {
+		"entityId": configRegistry['umc/saml/idp-server'],
+		"singleSignOnService": {
+			"url": "https://%(ucs/server/sso/fqdn)s/simplesamlphp/saml2/idp/SSOService.php" % configRegistry,
+			"binding": BINDING_HTTP_REDIRECT
+		},
+		"singleLogoutService": {
+			"url": "https://%(ucs/server/sso/fqdn)s/simplesamlphp/saml2/idp/SingleLogoutService.php" % configRegistry,
+			"binding": BINDING_HTTP_REDIRECT
+		},
+		"x509cert": _unwrap_cert(open(configRegistry['saml/idp/certificate/certificate']).read()),
+	}
+}
+print(json.dumps(config, sort_keys=True, indent=4))
+@!@

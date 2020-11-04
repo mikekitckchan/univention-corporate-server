@@ -30,7 +30,7 @@
 # /usr/share/common-licenses/AGPL-3; if not, see
 # <https://www.gnu.org/licenses/>.
 
-metadata=$(python -c "from saml2.metadata import create_metadata_string; import sys; sys.stdout.write(create_metadata_string('/usr/share/univention-management-console/saml/sp.py', None, valid=None, cert=None, keyfile=None, mid=None, name=None, sign=False))") || exit 1
+metadata=$(python -c "from onelogin.saml2.settings import OneLogin_Saml2_Settings; print(OneLogin_Saml2_Settings(custom_base_path='/usr/share/univention-management-console/saml/', sp_validation_only=True).get_sp_metadata())") || exit 1
 [ -z "$metadata" ] && exit 2
 
 eval "$(ucr shell hostname domainname umc/saml/sp-server ldap/base)"

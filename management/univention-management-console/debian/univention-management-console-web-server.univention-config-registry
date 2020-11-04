@@ -29,3 +29,22 @@ Variables: ucs/server/sso/virtualhost
 Type: module
 Module: setup_saml_sp.py
 Variables: umc/saml/idp-server
+
+Type: file
+File: usr/share/univention-management-console/saml/settings.json
+Variables: umc/saml/sp-server
+Variables: umc/saml/debug
+Variables: umc/saml/strict
+Variables: saml/idp/certificate/certificate
+Variables: ucs/server/sso/fqdn
+Variables: hostname
+Variables: domainname
+
+Type: file
+File: usr/share/univention-management-console/saml/advanced_settings.json
+Variables: ucs/server/sso/fqdn
+Variables: hostname
+Variables: domainname
+Variables: umc/saml/contact_person/.*
+Variables: umc/saml/organization/.*
+Variables: umc/saml/sp-server
