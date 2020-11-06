@@ -1,0 +1,97 @@
+#!/usr/share/ucs-test/runner python
+## desc: Test to check custom mappings for the AD-Connector
+## bugs: [49981]
+## roles:
+##  - domaincontroller_master
+## exposure: dangerous
+
+import univention.testing.utils as utils
+from univention.testing.strings import random_username
+from univention.testing.connector_common import (
+    NormalUser, create_udm_user, delete_udm_user)
+from unittest import TestCase
+from adconnector import (ADConnection, restart_adconnector, wait_for_sync)
+import univention.testing.udm as udm_test
+
+class TestADCustomMappings(TestCase):
+    def setUp(self):
+        # TODO: this is a prototype and has to be tested
+        self.mapping_file = "/etc/adconnector/mapping_ad.py"
+
+        with open(mapping_file, 'w') as f:
+            f.write(
+                "def apply_custom_mapping(ad_mapping):"
+                "    ad_mapping['user'].post_attributes['displayName'] ="
+                "        univention.connector.attribute("
+                "               ucs_attribute='displayName',"
+                "               ldap_attribute='univentionFreeAttribute20',"
+                "               con_attribute='displayName',"
+                ")"
+            )
+        # activate mapping by restarting the ad-connector...
+        restart_adconnector()
+
+    def tearDown(self):
+        from os import remove
+        remove(self.mapping_file)
+        # deactivate mapping by restarting the ad-connector after file has
+        # gone...
+        restart_adconnector()
+
+    def test_mapping_with_freeattribute(self):
+        # this test will try to create a mapping so that the
+        # univentionFreeAttribute20 will be available in AD as a DisplayName
+        # attribute for each user.
+
+        with adconnector.ADConnection() as adc, udm_test.UCSTestUDM() as udm:
+
+            # create a random user
+            self.user = NormalUser()
+            (basic_ad_user, ad_user_dn, udm_user_dn) = create_con_user(
+                adc, udm_user, wait_for_sync)
+
+            (udm_user_dn, ad_user_dn) = create_udm_user(
+                udm, adc, udm_user, wait_for_sync)
+
+            dn = self.create_test_attribute(udm)
+            wait_for_sync()
+
+            attribute = self.check_ad_attribute(adc, ad_user_dn, "DisplayName")
+
+            delete_con_user(adc, ad_user_dn, udm_user_dn, adconnector.wait_for_sync)
+
+    def create_test_attribute(self, udm, attr='univentionFreeAttribute20'):
+        extattr_dn = udm.create_object(
+            'settings/extended_attribute',
+            position='cn=custom attributes,cn=univention,%s' % ucr.get('ldap/base'),
+            objectClass='univentionFreeAttributes',
+            groupPosition='1',
+            module='users/user',
+            overwriteTab='0',
+            shortDescription='UCS Test Extended Attribute',
+            groupName='UCS TEST: test_udm_syntax',
+            valueRequired='0',
+            CLIName='ucstest%s' % extension_name.upper(),
+            longDescription='UCS Test Extended Attribute',
+            doNotSearch='0',
+            tabName='UCS TEST',
+            syntax=extension_name,
+            tabAdvanced='0',
+            name='UCStest-syntax-extension-%s' % extension_name,
+            mayChange='1',
+            multivalue='0',
+            ldapMapping=,
+            notEditable='0',
+            tabPosition='1'
+        )
+        return extattr_dn
+
+    def check_ad_attribute(self, adc, dn, attr='univentionFreeAttribute20'):
+        try:
+            return adc.get(adc.get(dn, [attr]))
+        except ldap.NO_SUCH_OBJECT e:
+            print("object not found: %s" % e.message)
+
+
+if __name__ == "__main__":
+    unittest.main(TestADCustomMappings())
