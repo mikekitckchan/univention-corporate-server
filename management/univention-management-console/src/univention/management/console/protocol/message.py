@@ -32,7 +32,7 @@
 # <https://www.gnu.org/licenses/>.
 
 """
-UMCP is a simple RPC protocol using two message types (request and
+UMCP was a simple RPC protocol using two message types (request and
 response message). The API of the Python objects representing the
 messages are based on the class :class:`.Message`.
 """
@@ -40,13 +40,7 @@ from __future__ import print_function
 
 import mimetypes
 import time
-import re
-import copy
-import json
 
-import six
-
-from .definitions import UMCP_ERR_UNPARSABLE_BODY, UMCP_ERR_UNPARSABLE_HEADER
 from univention.management.console.log import PARSER, PROTOCOL
 
 from univention.lib.i18n import Translation
@@ -59,14 +53,6 @@ except ImportError:
 	pass
 
 _ = Translation('univention.management.console').translate
-
-
-class ParseError(Exception):
-	pass
-
-
-class IncompleteMessageError(Exception):
-	pass
 
 
 # Constants
@@ -91,14 +77,11 @@ class Message(object):
 	"""
 
 	RESPONSE, REQUEST = range(0, 2)
-	_header = re.compile(u'(?P<type>REQUEST|RESPONSE)/(?P<id>[\\d-]+)/(?P<length>\\d+)(/(?P<mimetype>[a-z-/]+))?: ?(?P<command>\\w+) ?(?P<arguments>[^\n]+)?', re.UNICODE)
 	__counter = 0
 
 	def __init__(self, type=REQUEST, command=u'', mime_type=MIMETYPE_JSON, data=None, arguments=None, options=None):
 		# type: (RequestType, str, str, bytes, List[str], Dict[str, Any]) -> None
-		self._id = None
-		self._length = 0
-		self._type = type
+		self.id = None
 		if mime_type == MIMETYPE_JSON:
 			self.body = {}  # type: UmcpBody
 		else:
@@ -108,56 +91,15 @@ class Message(object):
 		self.mimetype = mime_type
 		if mime_type == MIMETYPE_JSON:
 			self.options = options if options is not None else {}
-		if data:
-			self.parse(data)
-
-	@staticmethod
-	def _formattedMessage(_id, _type, mimetype, command, body, arguments):
-		# type: (int, RequestType, str, str, UmcpBody, List[str]) -> bytes
-		'''Returns formatted message.'''
-		type = b'RESPONSE'
-		if _type == Message.REQUEST:
-			type = b'REQUEST'
-		if mimetype == MIMETYPE_JSON:
-			data = json.dumps(body)
-			if not isinstance(data, bytes):  # Python 3
-				data = data.encode('utf-8')
-		else:
-			data = bytes(body)
-		args = b''
-		if arguments:
-			args = b' '.join(x.encode('utf-8') if hasattr(bytes, 'encode') else bytes(x, 'utf-8') for x in arguments)
-		return b'%s/%s/%d/%s: %s %s\n%s' % (type, _id.encode('utf-8'), len(data), mimetype.encode('utf-8'), (command or u'NONE').encode('utf-8'), args, data)
-
-	def __bytes__(self):
-		'''Returns the formatted message'''
-		return Message._formattedMessage(self._id, self._type, self.mimetype, self.command, self.body, self.arguments)
-
-	if six.PY2:
-		def __str__(self):
-			return self.__bytes__()
 
 	def _create_id(self):
 		# cut off 'L' for long
-		self._id = u'%lu-%d' % (int(time.time() * 100000), Message.__counter)
+		self.id = u'%lu-%d' % (int(time.time() * 100000), Message.__counter)
 		Message.__counter += 1
 
 	def recreate_id(self):
 		"""Creates a new unique ID for the message"""
 		self._create_id()
-
-	def is_type(self, type):
-		"""Checks the message type"""
-		return (self._type == type)
-
-	#: The property id contains the unique identifier for the message
-	@property
-	def id(self):
-		return self._id
-
-	@id.setter
-	def id(self, id):
-		self._id = id
 
 	# JSON body properties
 	def _set_key(self, key, value, cast=None):
@@ -210,73 +152,6 @@ class Message(object):
 	#: contains the HTTP request method
 	http_method = property(lambda self: self._get_key('method'), lambda self, value: self._set_key('method', value))
 
-	def parse(self, msg):
-		# type: (bytes) -> None
-		"""Parses data and creates in case of a valid UMCP message the
-		corresponding object. If the data contains more than the message
-		the rest of the data is returned.
-
-		:raises: :class:`.ParseError`
-		"""
-		header, nl, body = msg.partition(b'\n')
-
-		try:
-			header = header.decode('utf-8')
-		except ValueError:
-			PARSER.error('Error decoding UMCP message header: %r' % (header[:100],))
-			raise ParseError(UMCP_ERR_UNPARSABLE_HEADER, _('Invalid message header encoding.'))
-
-		# is the format of the header line valid?
-		match = Message._header.match(header)
-		if not match:
-			if not nl:
-				raise IncompleteMessageError(_('The message header is not (yet) complete'))
-			PARSER.error('Error parsing UMCP message header: %r' % (header[:100],))
-			raise ParseError(UMCP_ERR_UNPARSABLE_HEADER, _('Unparsable message header'))
-
-		groups = match.groupdict()
-		self._type = groups['type'] == u'REQUEST' and Message.REQUEST or Message.RESPONSE
-		self._id = groups['id']
-		if 'mimetype' in groups and groups['mimetype']:
-			self.mimetype = groups['mimetype']
-
-		self._id = groups['id']
-		try:
-			self._length = int(groups['length'])
-		except ValueError:
-			PARSER.process('Invalid length information')
-			raise ParseError(UMCP_ERR_UNPARSABLE_HEADER, _('Invalid length information'))
-		self.command = groups['command']
-
-		if groups.get('arguments'):
-			self.arguments = groups['arguments'].split(u' ')
-
-		# invalid/missing message body?
-		current_length = len(body)
-		if (not body and self._length) or self._length > current_length:
-			PARSER.info('The message body is not complete: %d of %d bytes' % (current_length, self._length))
-			raise IncompleteMessageError(_('The message body is not (yet) complete'))
-
-		remains = b''
-		if len(body) > self._length:
-			self.body, remains = body[:self._length], body[self._length:]
-		else:
-			self.body = body
-
-		if self.mimetype == MIMETYPE_JSON:
-			try:
-				self.body = json.loads(self.body.decode('utf-8', 'ignore'))
-				if not isinstance(self.body, dict):
-					raise ValueError('body is a %r' % (type(self.body).__name__,))
-			except ValueError as exc:
-				self.body = {}
-				PARSER.error('Error parsing UMCP message body: %s' % (exc,))
-				raise ParseError(UMCP_ERR_UNPARSABLE_BODY, _('error parsing UMCP message body'))
-
-		PARSER.info('UMCP %(type)s %(id)s parsed successfully' % groups)
-
-		return remains
-
 
 class Request(Message):
 
@@ -296,7 +171,7 @@ class Response(Message):
 		# type: (Request, Any, str) -> None
 		Message.__init__(self, Message.RESPONSE, mime_type=mime_type)
 		if request:
-			self._id = request._id
+			self.id = request.id
 			self.command = request.command
 			self.arguments = request.arguments
 			if request.mimetype == MIMETYPE_JSON:
@@ -325,32 +200,3 @@ class Response(Message):
 		with open(filename, 'rb') as fd:
 			# FIXME: should check size first
 			self.body = fd.read()
-
-	def __bytes__(self):
-		'''Returns the formatted message without request options'''
-		body = copy.copy(self.body)
-		if isinstance(body, dict) and 'options' in body:
-			del body['options']
-		return Message._formattedMessage(self._id, self._type, self.mimetype, self.command, body, self.arguments)
-
-
-if __name__ == '__main__':
-	# encode
-	auth = Request('AUTH')
-	auth.body['username'] = 'fasel'
-	auth.body['password'] = 'secret'
-	req = Request('COMMAND', arguments=['cups/list'], options=['slave.domain.tld'])
-	res = Response(req)
-
-	for msg in (req, res, auth):
-		if msg.isType(Message.REQUEST):
-			print(">>> a request:", end=' ')
-		if msg.isType(Message.RESPONSE):
-			print("<<< a response:", end=' ')
-		print(msg)
-
-	print(Message(data=str(auth)))
-	# decode
-	data = str(req)
-	msg = Message(data=data)
-	print(msg)

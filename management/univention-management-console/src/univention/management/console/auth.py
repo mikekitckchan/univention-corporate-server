@@ -38,10 +38,6 @@ import traceback
 import ldap
 from ldap.filter import filter_format
 
-import notifier
-import notifier.signals as signals
-import notifier.threads as threads
-
 import univention.admin.uexceptions as udm_errors
 from univention.lib.i18n import Locale
 
@@ -90,26 +86,32 @@ class AuthenticationResult(object):
 	__nonzero__ = __bool__  # Python 2
 
 
-class AuthHandler(signals.Provider):
+class AuthHandler(object):
 
-	def __init__(self):
-		signals.Provider.__init__(self)
-		self.signal_new('authenticated')
-
-	def authenticate(self, msg):
+	def get_handler(self, locale):
 		# PAM MUST be initialized outside of a thread. Otherwise it segfaults e.g. with pam_saml.so.
 		# See http://pam-python.sourceforge.net/doc/html/#bugs
+		return PamAuth(locale)
 
-		args = msg.body.copy()
-		locale = args.pop('locale', None)
+	def authenticate(self, pam, args):
 		args.pop('pam', None)
+		locale = args.pop('locale')
 		args.setdefault('new_password', None)
 		args.setdefault('username', '')
 		args.setdefault('password', '')
 
-		pam = PamAuth(locale)
-		thread = threads.Simple('pam', notifier.Callback(self.__authenticate_thread, pam, **args), notifier.Callback(self.__authentication_result, pam, msg, locale))
-		thread.run()
+		try:
+			result = self.__authenticate_thread(pam, **args)
+		except (AuthenticationFailed, AuthenticationInformationMissing, PasswordExpired, PasswordChangeFailed, AccountExpired) as exc:
+			result = exc
+		except BaseException as exc:
+			result = exc
+			AUTH.error(traceback.format_exc())
+
+		if isinstance(result, tuple):
+			username, password = result
+			result = {'username': username, 'password': password, 'auth_type': args.get('auth_type')}
+		return AuthenticationResult(result, locale)
 
 	def __authenticate_thread(self, pam, username, password, new_password, auth_type=None, **custom_prompts):
 		AUTH.info('Trying to authenticate user %r (auth_type: %r)' % (username, auth_type))
@@ -153,14 +155,3 @@ class AuthHandler(signals.Provider):
 		except Exception:
 			AUTH.error('Canonicalization of username failed: %s' % (traceback.format_exc(),))
 		return username
-
-	def __authentication_result(self, thread, result, pam, request, locale):
-		pam.end()
-		if isinstance(result, BaseException) and not isinstance(result, (AuthenticationFailed, AuthenticationInformationMissing, PasswordExpired, PasswordChangeFailed, AccountExpired)):
-			msg = ''.join(thread.trace + traceback.format_exception_only(*thread.exc_info[:2]))
-			AUTH.error(msg)
-		if isinstance(result, tuple):
-			username, password = result
-			result = {'username': username, 'password': password, 'auth_type': request.body.get('auth_type')}
-		auth_result = AuthenticationResult(result, locale)
-		self.signal_emit('authenticated', auth_result, request)

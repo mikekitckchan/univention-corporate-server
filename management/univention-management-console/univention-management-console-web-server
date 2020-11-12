@@ -70,6 +70,7 @@ import univention.debug as ud
 from univention.management.console.protocol import Request, Response, Client, NoSocketError, TEMPUPLOADDIR
 from univention.management.console.log import CORE, log_init, log_reopen
 from univention.management.console.config import ucr, get_int
+from univention.management.console.protocol.session import Auth, Upload, Command, UCR, Meta, Info, Modules, Categories, UserPreferences, Hosts, SetPassword, SetLocale, SetUserPreferences
 
 from saml2 import BINDING_HTTP_POST, BINDING_HTTP_ARTIFACT, BINDING_HTTP_REDIRECT
 from saml2.client import Saml2Client
@@ -101,6 +102,8 @@ if 422 not in tornado.httputil.responses:
 	tornado.httputil.responses[422] = 'Unprocessable Entity'  # Python 2 is missing this status code
 
 m = Manager()
+
+
 def SharedMemoryDict(*args, **kwargs):
 	return m.dict(*args, **kwargs)
 
@@ -504,11 +507,25 @@ class Application(TApplication):
 		super(Application, self).__init__([
 			(r'/auth/sso', AuthSSO),
 			(r'/auth/?', CPAuth),
-			(r'/(?:command|upload)(?:/(.*))?', CPCommand),
+			#(r'/auth/?', Auth),
+			(r'/upload/', Upload),
+			(r'/upload/(.+)', Command),
+			(r'/command/(.+)', Command),
+			#(r'/(?:command|upload)(?:/(.*))?', CPCommand),
 			(r'/get/session-info', SessionInfo),
 			(r'/get/ip-address', GetIPAdress),
-			(r'/get/(.+)', CPGet),
-			(r'/set/?()', CPSet),
+			(r'/get/ucr', UCR),
+			(r'/get/meta', Meta),
+			(r'/get/info', Info),
+			(r'/get/modules', Modules),
+			(r'/get/categories', Categories),
+			(r'/get/user/preferences', UserPreferences),
+			(r'/get/hosts', Hosts),
+			#(r'/get/(.+)', CPGet),
+			(r'/set/password', SetPassword),
+			(r'/set/locale', SetLocale),
+			(r'/set/user/preferences', SetUserPreferences),
+			#(r'/set/?()', CPSet),
 			(r'/saml/', SamlACS),
 			(r'/saml/metadata', SamlMetadata),
 			(r'/saml/slo/?', SamlSingleLogout),
@@ -1175,12 +1192,12 @@ class AuthSSO(CPgeneric):
 		return self.get()
 
 
-class CPAuth(CPgeneric):
+class CPAuth(Auth, CPgeneric):
 
 	def parse_authorization(self):
 		return  # do not call super method, prevent basic auth
 
-	def get(self):
+	def _get(self):
 		self._x_log('info', 'CPAuth/auth: got new auth request')
 
 		try:
@@ -1209,7 +1226,7 @@ class CPAuth(CPgeneric):
 		req.body['auth_type'] = None
 		self.finish(self._auth_request(req, sessionid))
 
-	def post(self):
+	def _post(self):
 		return self.get()
 
 
@@ -1545,7 +1562,7 @@ class Server(object):
 			idle_connection_timeout=get_int('umc/http/response-timeout', 310),  # is this correct? should be internal response timeout
 			max_body_size=get_int('umc/http/max_request_body_size', 104857600),
 		)
-		server.bind(get_int('umc/http/port', 8090), ucr.get('umc/http/interface', '127.0.0.1'), backlog=get_int('umc/http/requestqueuesize', 100))
+		server.bind(get_int('umc/http/port', 8090), ucr.get('umc/http/interface', '127.0.0.1'), backlog=get_int('umc/http/requestqueuesize', 100))  # backlog=SERVER_MAX_CONNECTIONS
 		server.start(self.options.cpus)
 
 		channel = logging.StreamHandler()
