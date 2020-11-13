@@ -41,34 +41,13 @@ TEST_ATTRIBUTE_VALUE="BREMEN"
 class TestADCustomMappings(unittest.TestCase):
     def setUp(self):
         # TODO: this is a prototype and has to be tested
-        self.mapping_file = "/etc/adconnector/mapping_ad.py"
-        self.mapping_file_dir = os.path.dirname(self.mapping_file)
-
-        try:
-            os.mkdir(self.mapping_file_dir)
-        except OSError:
-            print("Directory already exists: %s" % self.mapping_file_dir)
-
-        TEST_MAPPING = (
-            "def apply_custom_mapping(ad_mapping):\n"
-            "    ad_mapping['user'].post_attributes['displayName'] =\n"
-            "        univention.connector.attribute(\n"
-            "               ucs_attribute='shortDescription',\n"
-            "               ldap_attribute='univentionFreeAttribute20',\n"
-            "               con_attribute='l'\n" # write in 'city' field
-            ")")
-
-        with open(self.mapping_file, 'w') as f:
-            f.write(TEST_MAPPING)
-
-        print("Using as test-mapping:\n%s" % TEST_MAPPING)
-        # activate mapping by restarting the ad-connector...
-        restart_adconnector()
+        pass
 
     def tearDown(self):
         try:
-            os.remove(self.mapping_file)
-            os.rmdir(self.mapping_file_dir)
+            # os.remove(self.mapping_file)
+            # os.rmdir(self.mapping_file_dir)
+            pass
         except OSError:
             print("Surprising, that there is nothing to remove from this test.")
         # deactivate mapping by restarting the ad-connector after file has
@@ -80,6 +59,32 @@ class TestADCustomMappings(unittest.TestCase):
         # this test will try to create a mapping so that the
         # univentionFreeAttribute20 will be available in AD as a DisplayName
         # attribute for each user.
+        #
+        self.mapping_file = "/etc/univention/connector/ad/localmapping.py"
+        self.mapping_file_dir = os.path.dirname(self.mapping_file)
+
+        try:
+            os.mkdir(self.mapping_file_dir)
+        except OSError:
+            print("Directory already exists: %s" % self.mapping_file_dir)
+
+        TEST_MAPPING = (
+            "def apply_custom_mapping(univention, ad_mapping):\n"
+            "    print('AD_MAPPING for user: %s' % ad_mapping['user'])\n"
+            "    ad_mapping['user'].post_attributes['city'] =\\\n"
+            "        univention.connector.attribute(\n"
+            "            ucs_attribute='shortDescription',\n"
+            "            ldap_attribute='univentionFreeAttribute20',\n"
+            "            con_attribute='l'\n" # write in 'city' field
+            "        )\n"
+            "   return ad_mapping\n")
+
+        with open(self.mapping_file, 'w') as f:
+            f.write(TEST_MAPPING)
+
+        print("Using as test-mapping:\n%s" % TEST_MAPPING)
+        # activate mapping by restarting the ad-connector...
+        restart_adconnector()
 
         # udm = udm_test.UCSTestUDM()
         #
@@ -118,6 +123,7 @@ class TestADCustomMappings(unittest.TestCase):
             # create a random user
             udm_user = NormalUser(selection=("username", "lastname"))
             udm_user.basic["password"] = "univention"
+            udm_user.basic["shortDescription"] = "FOOBAR"
 
             (udm_user_dn, ad_user_dn) = create_udm_user(udm, adc, udm_user, wait_for_sync)
             print("Summary of users to be synchronized:\n\tudm_user_dn:\t%s,\n\ts4_user_dn:\t%s" % (udm_user_dn, ad_user_dn))

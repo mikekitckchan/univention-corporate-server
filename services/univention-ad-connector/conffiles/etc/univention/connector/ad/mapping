@@ -462,6 +462,7 @@ if configRegistry.is_false('connector/ad/mapping/group/exchange', True):
 if configRegistry.get('connector/ad/mapping/group/language') not in ['de', 'DE']:
 	ad_mapping['group'].mapping_table.pop('cn')
 
+
 def apply_custom_mapping(ad_mapping):
 
 	# to allow a customer-specific mapping we want to load parts of this
@@ -469,35 +470,36 @@ def apply_custom_mapping(ad_mapping):
 	# successor of the imp module from python2. This function will return
 	# its ad_mapping unmodified if an error occurs within the custom
 	# mapping file.
+	#
 
+	mapping_path = os.path.dirname(__file__)
+	sys.path.append(mapping_path)
+	
 	try:
 		from importlib import import_module
-	catch ImportError:
+	except ImportError:
 		try:
 			from imp import load_source as import_module
-		except ImportError:
+		except ImportError as e:
 			print(
 				"Could neither load importlib (python3.1) nor"
-				"imp (python2) module."
+				"imp (python2) module: %s" % e.message
 			)
 			return ad_mapping
 
-	try:
-		localmapping = import_module(
-			'localmapping_ad',
-			os.path.join(os.path.dirname(__file__), 'localmapping_ad.py'))
-		return localmapping.mapping_hook(ad_mapping)
 
-	except ModuleNotFoundError:
-		print(
-			"Info: The ad-connector is not using a
-			'localmapping_ad.py'. A file with that name was not
-			found under '%s'" %
-			os.path.dirname(__file__)
-		)
+	try:
+		localmapping = import_module('localmapping', mapping_path)
+
+		# execte the mapping_hook within the dynamically loaded file and return
+		# its result...
+		return localmapping.apply_custom_mapping(univention, ad_mapping)
+
+	except Exception as e:
+		print("Info: Will not be using a custom mapping: %s" % e.message)
 		return ad_mapping
 
-	except Exception e:
+	except Exception as e:
 
 		# catch any exception, because it is not predictable which
 		# exceptions exist. Do not apply the mapping, keep it as it is
