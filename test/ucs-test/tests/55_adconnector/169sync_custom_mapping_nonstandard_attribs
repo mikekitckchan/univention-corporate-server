@@ -71,13 +71,13 @@ class TestADCustomMappings(unittest.TestCase):
         TEST_MAPPING = (
             "def apply_custom_mapping(univention, ad_mapping):\n"
             "    print('AD_MAPPING for user: %s' % ad_mapping['user'])\n"
-            "    ad_mapping['user'].post_attributes['city'] =\\\n"
+            "    ad_mapping['user'].post_attributes['organisation'] =\\\n"
             "        univention.connector.attribute(\n"
-            "            ucs_attribute='shortDescription',\n"
-            "            ldap_attribute='univentionFreeAttribute20',\n"
-            "            con_attribute='l'\n" # write in 'city' field
+            "            ucs_attribute='city',\n"
+            "            ldap_attribute='l',\n"
+            "            con_attribute='company'\n" # write in 'city' field
             "        )\n"
-            "   return ad_mapping\n")
+            "    return ad_mapping\n")
 
         with open(self.mapping_file, 'w') as f:
             f.write(TEST_MAPPING)
@@ -124,6 +124,8 @@ class TestADCustomMappings(unittest.TestCase):
             udm_user = NormalUser(selection=("username", "lastname"))
             udm_user.basic["password"] = "univention"
             udm_user.basic["shortDescription"] = "FOOBAR"
+            udm_user.basic["city"] = TEST_ATTRIBUTE_VALUE
+            udm_user.basic["organisation"] = "UNIVENTION"
 
             (udm_user_dn, ad_user_dn) = create_udm_user(udm, adc, udm_user, wait_for_sync)
             print("Summary of users to be synchronized:\n\tudm_user_dn:\t%s,\n\ts4_user_dn:\t%s" % (udm_user_dn, ad_user_dn))
@@ -132,7 +134,7 @@ class TestADCustomMappings(unittest.TestCase):
             # verify, that the extended attribute has been written into the ad user
             # ad_user_dn = 'CN=r3145nu77a,CN=users,DC=windom,DC=test'
             self.assertTrue(adc.exists(ad_user_dn))
-            self.assertEqual(adc.get_attribute(ad_user_dn, 'l'), TEST_ATTRIBUTE_VALUE)
+            self.assertEqual(adc.get_attribute(ad_user_dn, 'company'), [TEST_ATTRIBUTE_VALUE])
 
             # attribute = self.check_ad_attribute(adc, ad_user_dn, "displayName")
             # retval = adc.get(dn, ['lastname', 'firstname', 'description', 'telephoneNumber', 'givenName', 'sn', 'samAccountName', 'l'])

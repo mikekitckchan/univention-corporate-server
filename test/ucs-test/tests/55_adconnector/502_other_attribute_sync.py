@@ -17,8 +17,7 @@ import univention.testing.connector_common as tcommon
 from univention.testing.connector_common import (NormalUser, create_udm_user,
 	delete_udm_user, create_con_user, delete_con_user)
 
-import adconnector
-from adconnector import (connector_running_on_this_host, connector_setup)
+from univention.management.console.modules.adconnector import (connector_running_on_this_host, connector_setup)
 
 # This is something weird. The `adconnector.ADConnection()` MUST be
 # instantiated, before `UCSTestUDM` is imported.
