@@ -49,6 +49,12 @@ class ADConnection(ldap_glue.LDAPConnection):
 		no_starttls = baseConfig.is_false('%s/ad/ldap/ssl' % configbase)
 		self.connect(no_starttls)
 
+	def __enter__(self):
+		return self
+
+	def __exit__(self, exc_type, exc_value, traceback):
+		return self
+
 	def _set_module_default_attr(self, attributes, defaults):
 		"""
 		Returns the given attributes, extended by every property given in defaults if not yet set.
