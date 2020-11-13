@@ -64,6 +64,7 @@ from tornado.web import RequestHandler, Application as TApplication, HTTPError
 from tornado.httpserver import HTTPServer
 import tornado
 from concurrent.futures import ThreadPoolExecutor
+from multiprocessing import Manager
 
 import univention.debug as ud
 from univention.management.console.protocol import Request, Response, Client, NoSocketError, TEMPUPLOADDIR
@@ -98,6 +99,10 @@ pool = ThreadPoolExecutor(max_workers=get_int('umc/http/maxthreads', 35))
 
 if 422 not in tornado.httputil.responses:
 	tornado.httputil.responses[422] = 'Unprocessable Entity'  # Python 2 is missing this status code
+
+m = Manager()
+def SharedMemoryDict(*args, **kwargs):
+	return m.dict(*args, **kwargs)
 
 
 class NotFound(HTTPError):
@@ -678,7 +683,7 @@ class Resource(RequestHandler):
 		'info': CORE.info,
 	}
 
-	sessions = {}
+	sessions = SharedMemoryDict()
 
 	@property
 	def name(self):
@@ -1212,6 +1217,7 @@ class SAMLBase(CPgeneric):
 
 	SP = None
 	configfile = '/usr/share/univention-management-console/saml/sp.py'
+	state_cache = SharedMemoryDict()
 
 
 class SamlMetadata(SAMLBase):
@@ -1240,7 +1246,7 @@ class SamlACS(SAMLBase):
 		CORE.info('Reloading SAML service provider configuration')
 		sys.modules.pop(os.path.splitext(os.path.basename(cls.configfile))[0], None)
 		try:
-			cls.SP = Saml2Client(config_file=cls.configfile)
+			cls.SP = Saml2Client(config_file=cls.configfile, state_cache=cls.state_cache, identity_cache='/usr/share/univention-management-console/saml/users.bdb')
 			return True
 		except Exception:
 			CORE.warn('Startup of SAML2.0 service provider failed:\n%s' % (traceback.format_exc(),))
