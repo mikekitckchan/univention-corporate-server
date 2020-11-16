@@ -1,3 +1,9 @@
+univention-management-console-module-udm (10.1.0-4) unstable; urgency=medium
+
+  * UCS5 UI
+
+ -- Johannes Keiser <keiser@univention.de>  Mon, 16 Nov 2020 14:11:00 +0100
+
 univention-management-console-module-udm (10.0.0-4) unstable; urgency=medium
 
   * Bug #52125: adjust wording for new portal

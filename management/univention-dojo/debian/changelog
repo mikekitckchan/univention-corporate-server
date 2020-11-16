@@ -1,3 +1,9 @@
+univention-dojo (13.1.1-1) unstable; urgency=medium
+
+  * UCS5 UI
+
+ -- Johannes Keiser <keiser@univention.de>  Mon, 16 Nov 2020 14:10:15 +0100
+
 univention-dojo (13.0.1-1) unstable; urgency=medium
 
   * Bug #48963: upgrade dojo to 1.16.3

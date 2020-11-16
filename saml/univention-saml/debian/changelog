@@ -1,3 +1,9 @@
+univention-saml (7.1.4-1) unstable; urgency=medium
+
+  * UCS5 UI
+
+ -- Johannes Keiser <keiser@univention.de>  Wed, 25 Nov 2020 11:22:06 +0100
+
 univention-saml (7.0.4-1) unstable; urgency=medium
 
   * Bug #52323: make assertion.lifetime configurable

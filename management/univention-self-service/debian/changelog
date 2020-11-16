@@ -1,3 +1,9 @@
+univention-self-service (5.1.1-1) unstable; urgency=medium
+
+  * UCS5 UI
+
+ -- Johannes Keiser <keiser@univention.de>  Mon, 16 Nov 2020 14:12:09 +0100
+
 univention-self-service (5.0.1-1) unstable; urgency=medium
 
   * Bug #52362: fix token validity check if more than one day passed
