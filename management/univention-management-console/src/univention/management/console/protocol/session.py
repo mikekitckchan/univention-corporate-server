@@ -44,7 +44,6 @@ import gzip
 import re
 import errno
 import pipes
-import functools
 
 import six
 from ldap.filter import filter_format
@@ -72,7 +71,7 @@ from ..config import MODULE_INACTIVITY_TIMER, MODULE_DEBUG_LEVEL, MODULE_COMMAND
 from ..locales import I18N, I18N_Manager
 from ..base import Base
 from ..error import UMC_Error, Unauthorized, BadRequest, Forbidden, ServiceUnavailable, BadGateway
-from ..ldap import get_admin_connection, get_machine_connection, reset_cache as reset_ldap_connection_cache
+from ..ldap import get_machine_connection, reset_cache as reset_ldap_connection_cache
 from ..modules.sanitizers import StringSanitizer, DictSanitizer
 from ..modules.decorators import sanitize, sanitize_args, allow_get_request
 
@@ -83,27 +82,6 @@ SessionHandler = None
 
 class CouldNotConnect(Exception):
 	pass
-
-
-def json_response(func=None, wrap=True):
-	def _decorize(func):
-		@functools.wraps(func)
-		def decorator(self, *args, **kwargs):
-			result = func(self, *args, **kwargs)
-			self.set_header('Content-Type', 'application/json')
-			message = self._headers.get('X-UMC-Message')
-			response = {'status': self.get_status()}  # TODO: get rid of this
-			if message:
-				response['message'] = message
-			if wrap:
-				response['result'] = result
-			else:
-				response.update(result)
-			self.finish(json.dumps(response).encode('ASCII'))
-		return decorator
-	if func is None:
-		return _decorize
-	return _decorize(func)
 
 
 def allow_unauthorized(func):
@@ -363,6 +341,7 @@ class Resource(tornado.web.RequestHandler):
 
 	def prepare(self):
 		self._ = self.locale.translate
+		self.request.content_negotiation_lang = 'json'
 		self.decode_request_arguments()
 		self.current_user.reset_connection_timeout()
 
@@ -406,13 +385,34 @@ class Resource(tornado.web.RequestHandler):
 #			if 'flavor' in kwargs:
 #				args['flavor'] = kwargs['flavor']
 
+	def content_negotiation(self, response, wrap=True):
+		lang = self.request.content_negotiation_lang
+		formatter = getattr(self, '%s_%s' % (self.request.method.lower(), lang), getattr(self, 'get_%s' % (lang,)))
+		codec = getattr(self, 'content_negotiation_%s' % (lang,))
+		self.finish(codec(formatter(response, wrap)))
+
+	def get_json(self, result, wrap=True):
+		message = self._headers.get('X-UMC-Message')
+		response = {'status': self.get_status()}  # TODO: get rid of this
+		if message:
+			response['message'] = message
+		if wrap:
+			response['result'] = result
+		else:
+			response.update(result)
+		return response
+
+	def content_negotiation_json(self, response):
+		self.set_header('Content-Type', 'application/json')
+		return json.dumps(response).encode('ASCII')
+
 
 class NewSession(Resource):
 
-	@json_response
 	def get(self):
 		session = self.current_user
 		session.renew()
+		self.content_negotiation(None)
 
 
 class Auth(Resource):
@@ -441,7 +441,7 @@ class Auth(Resource):
 		self.set_status(result.status)
 		if result.message:
 			self.set_header('X-UMC-Message', result.message)
-		json_response(lambda s: result.result)(self)
+		self.content_negotiation(result.result)
 
 	@tornado.web.asynchronous
 	def post(self, *args):
@@ -479,7 +479,6 @@ class Modules(Resource):
 		self.i18n.set_locale(self.locale.code)
 
 	@allow_unauthorized
-	@json_response(wrap=False)
 	def get(self):
 		categoryManager.load()
 		moduleManager.load()
@@ -502,7 +501,7 @@ class Modules(Resource):
 		])
 
 		CORE.info('Modules: %s' % (modules,))
-		return {'modules': modules}
+		self.content_negotiation({'modules': modules}, wrap=False)
 
 	def _flavor_definition(self, module, flavor, favorites):
 		favcat = []
@@ -565,7 +564,6 @@ class Modules(Resource):
 class Categories(Resource):
 
 	@allow_unauthorized
-	@json_response(wrap=False)
 	def get(self):
 		categoryManager.load()
 		ucr.load()
@@ -580,7 +578,7 @@ class Categories(Resource):
 				'priority': category.priority
 			})
 		CORE.info('Categories: %s' % (categories,))
-		return {'categories': categories}
+		self.content_negotiation({'categories': categories}, wrap=False)
 
 	post = get
 
@@ -854,7 +852,6 @@ class Processes(object):
 
 class Exit(Resource):
 
-	@json_response
 	def get(self, module_name):
 		"""Handles an EXIT request. If the request does not have an
 		argument that contains a valid name of a running UMC module
@@ -876,6 +873,7 @@ class Exit(Resource):
 			self.__processes[module_name].__killtimer = notifier.timer_add(3000, cb)
 		else:
 			CORE.info('Got EXIT request for a non-existing module %s' % module_name)
+		self.content_negotiation(None)
 
 	def _purge_child(self, module_name):
 		if module_name in self.__processes:
@@ -911,7 +909,6 @@ class Exit(Resource):
 class UCR(Resource):
 
 	#@sanitize(StringSanitizer(required=True))
-	@json_response
 	def get(self):
 		ucr.load()
 		result = {}
@@ -921,7 +918,7 @@ class UCR(Resource):
 				result.update(dict((x, ucr.get(x)) for x in ucr.keys() if x.startswith(value)))
 			else:
 				result[value] = ucr.get(value)
-		return result
+		self.content_negotiation(result)
 
 	def post(self):
 		return self.get()
@@ -953,7 +950,6 @@ class Meta(Resource):
 	]
 
 	@allow_unauthorized
-	@json_response
 	def get(self):
 		def _get_ucs_version():
 			try:
@@ -989,7 +985,7 @@ class Meta(Resource):
 			appliance_name=ucr.get('umc/web/appliance/name'),
 		))
 		meta_data.update([(i, ucr.get(i)) for i in self.META_UCR_VARS])
-		return meta_data
+		self.content_negotiation(meta_data)
 
 
 class Info(Resource):
@@ -1010,23 +1006,25 @@ class Info(Resource):
 	def get_ucs_version(self):
 		return '{0}-{1} errata{2} ({3})'.format(ucr.get('version/version', ''), ucr.get('version/patchlevel', ''), ucr.get('version/erratalevel', '0'), ucr.get('version/releasename', ''))
 
-	@json_response
 	def get(self):
 		ucr.load()
 
-		return {
+		result = {
 			'umc_version': self.get_umc_version(),
 			'ucs_version': self.get_ucs_version(),
 			'server': '{0}.{1}'.format(ucr.get('hostname', ''), ucr.get('domainname', '')),
 			'ssl_validity_host': int(ucr.get('ssl/validity/host', '0')) * 24 * 60 * 60 * 1000,
 			'ssl_validity_root': int(ucr.get('ssl/validity/root', '0')) * 24 * 60 * 60 * 1000,
 		}
+		self.content_negotiation(result)
 
 
 class Hosts(Resource):
 
-	@json_response
 	def get(self):
+		self.content_negotiation(self.get_hosts())
+
+	def get_hosts(self):
 		lo = self.lo
 		if not lo:  # unjoined / no LDAP connection
 			return []
@@ -1050,7 +1048,6 @@ class SetPassword(Resource):
 		password=StringSanitizer(required=True),
 		new_password=StringSanitizer(required=True),
 	)))
-	@json_response
 	def post(self, request):
 		username = self.username
 		password = request.options['password']['password']
@@ -1071,7 +1068,8 @@ class SetPassword(Resource):
 			self.thread_finished_callback(thread, result, request)
 		else:
 			CORE.info('Successfully changed password')
-			self.finished(request.id, None, message=self._('Password successfully changed.'))
+			self.content_negotiation(None)
+			self.set_header('X-UMC-Message', self._('Password successfully changed.'))
 			self.auth_type = None
 			self._password = new_password
 			self.current_user.processes.update_module_passwords()
@@ -1079,11 +1077,11 @@ class SetPassword(Resource):
 
 class UserPreferences(Resource):
 
-	@json_response
 	def get(self):
 		# fallback is an empty dict
 		lo = self.current_user.user.get_user_ldap_connection()
-		return {'preferences': self._get_user_preferences(lo)}
+		result = {'preferences': self._get_user_preferences(lo)}
+		self.content_negotiation(result)
 
 	def _get_user_preferences(self, lo):
 		user_dn = self.current_user.user.user_dn
@@ -1106,7 +1104,6 @@ class SetUserPreferences(UserPreferences):
 	#@sanitize(user=DictSanitizer(dict(
 	#	preferences=DictSanitizer(dict(), required=True),
 	#)))
-	@json_response
 	def post(self):
 		lo = self.current_user.user.get_user_ldap_connection()
 		# eliminate double entries
@@ -1114,6 +1111,7 @@ class SetUserPreferences(UserPreferences):
 		preferences.update(dict(self.request.body_arguments['preferences']))
 		if preferences:
 			self._set_user_preferences(lo, preferences)
+		self.content_negotiation(None)
 
 	def _set_user_preferences(self, lo, preferences):
 		user_dn = self.current_user.user.user_dn
