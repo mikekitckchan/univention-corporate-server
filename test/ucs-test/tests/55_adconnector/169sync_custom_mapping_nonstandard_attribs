@@ -6,40 +6,23 @@
 ##  - domaincontroller_master
 ## exposure: dangerous
 
-import univention.testing.utils as utils
-from univention.testing.strings import random_username
-from univention.testing.connector_common import (
-    NormalUser, create_udm_user, create_con_user, delete_udm_user)
 import unittest 
-
 import sys, os
 sys.path.append('$TESTLIBPATH')
-from adconnector import (restart_adconnector, wait_for_sync)
-from adconnector import (connector_setup)
 
-# import s4connector
-# from s4connector import (connector_running_on_this_host, connector_setup)
-
-
-
-import univention.testing.connector_common as tcommon
-
-from ldap import NO_SUCH_OBJECT
 import univention.testing.udm as udm_test
 import univention.testing.ucr as ucr_test
-import adconnector
 
-from univention.testing.udm_extensions import get_extension_name
-
-
-# import pytest
-
-
-TEST_ATTRIBUTE_VALUE="BREMEN"
-# TEST_ATTRIBUTE_MAPPING={"shortDescription": "l"}
+from univention.testing.strings import random_username, random_string
+from univention.testing.connector_common import (NormalUser, create_udm_user)
+from adconnector import (ADConnection, restart_adconnector, wait_for_sync)
 
 class TestADCustomMappings(unittest.TestCase):
     def setUp(self):
+        with ucr_test.UCSTestConfigRegistry() as ucr:
+            ucr.load()
+            self.ldap_base = ucr['ldap/base']
+
         self.mapping_file = "/etc/univention/connector/ad/localmapping.py"
         self.mapping_file_dir = os.path.dirname(self.mapping_file)
 
@@ -51,11 +34,10 @@ class TestADCustomMappings(unittest.TestCase):
         TEST_MAPPING = (
             "import univention.connector\n"
             "def mapping_hook(ad_mapping):\n"
-            "    print('AD_MAPPING for user: %s' % ad_mapping['user'])\n"
             "    ad_mapping['user'].post_attributes['organisation'] =\\\n"
             "        univention.connector.attribute(\n"
-            "            ucs_attribute='city',\n"
-            "            ldap_attribute='l',\n"
+            "            ucs_attribute='univentionFreeAttribute20',\n"
+            "            ldap_attribute='univentionFreeAttribute20',\n"
             "            con_attribute='company'\n" # write in 'city' field
             "        )\n"
             "    return ad_mapping\n")
@@ -67,129 +49,76 @@ class TestADCustomMappings(unittest.TestCase):
         # activate mapping by restarting the ad-connector...
         restart_adconnector()
 
+        self.udm = udm_test.UCSTestUDM()
+        self.adc = ADConnection()
+
     def tearDown(self):
         try:
+            self.udm.cleanup()
             os.remove(self.mapping_file)
             # deactivate mapping by restarting the ad-connector after file has
             # gone...
             restart_adconnector()
+
         except OSError:
             print("Surprising, that there is nothing to remove from this test.")
 
-    # def runTest(self):
+
+    def create_extended_attribute(self, udm, ldapMapping, module, defaultValue="defaultValue-TestFailed"):
+
+        """
+        Creates an extended attribute with a default value under module (e.g.
+        under 'user/user')
+        """
+
+        print("Creating extended attribute '%s' under '%s' with default value '%s'" % (
+            ldapMapping, self.ldap_base, defaultValue))
+
+        udm.create_object(
+            'settings/extended_attribute',
+            position='cn=custom attributes,cn=univention,%s' % self.ldap_base,
+            **dict(
+                name=ldapMapping,
+                ldapMapping=ldapMapping,                 # mandatory
+                CLIName=ldapMapping,                     # mandatory
+                objectClass='univentionFreeAttributes',  # mandatory
+                shortDescription=("test value: %s" % defaultValue),
+                valueRequired='1',
+                module=[module],
+                default=defaultValue
+            )
+        )
+
     def test_ldap_to_ad_with_mapping(self):
-        # this test will try to create a mapping so that the
-        # univentionFreeAttribute20 will be available in AD as a DisplayName
-        # attribute for each user.
-        #
 
-        # udm = udm_test.UCSTestUDM()
-        #
-        ldap_base = "?"
-        with ucr_test.UCSTestConfigRegistry() as ucr:
-            ldap_base = ucr['ldap/base'];
+        """
+        this test will try to create a mapping so that the
+        univentionFreeAttribute20 will be available in AD as a DisplayName
+        attribute for each user.
+        """
 
-        adc = adconnector.ADConnection()
-        # TODO: with adconnector.ADConnection() as adc: does not work for some reason
+        test_string = random_string()
+        attribute = "univentionFreeAttribute20"
+        self.create_extended_attribute(self.udm, attribute, "users/user")
 
-        with udm_test.UCSTestUDM() as udm:
+        # create a random user
+        udm_user = NormalUser(selection=("username", "lastname"))
+        udm_user.basic["password"] = "univention"
+        udm_user.basic[attribute] = test_string
+        udm_user.basic["description"] = ("test value: '%s'" % test_string) # useful as debugging hint
+        udm_user.basic["o"] = "test failed :("
 
-            # self.assertTrue(False) # TODO: with the ADConnector in a with block this assertion does not cause the test to fail
-            ucr.load()
+        (udm_user_dn, ad_user_dn) = create_udm_user(self.udm, self.adc, udm_user, wait_for_sync)
+        print("Summary of users to be synchronized:\n\tudm_user_dn:\t%s,\n\ts4_user_dn:\t%s" % (udm_user_dn, ad_user_dn))
 
-            try:
-                # create an extended attribute...
-                udm.create_object(
-                    'settings/extended_attribute',
-                    position='cn=custom attributes,cn=univention,%s' % ucr['ldap/base'],
-                    **dict(
-                        name='univentionFreeAttribute20',
-                        ldapMapping='univentionFreeAttribute20', # mandatory
-                        objectClass='univentionFreeAttributes',  # mandatory
-                        shortDescription=TEST_ATTRIBUTE_VALUE,
-                        valueRequired='1',
-                        CLIName='test',
-                        module=['users/user'],
-                        default="defaultvalue"
-                    )
-                )
-            except udm_test.UCSTestUDM_CreateUDMObjectFailed as e:
-                print("!Warning: Failed to create test attribute: %s, ignoring this error." % e.message)
-                pass
+        # verify that the user exists on the 'ad-side'...
+        self.assertTrue(self.adc.exists(ad_user_dn))
 
-            # create a random user
-            udm_user = NormalUser(selection=("username", "lastname"))
-            udm_user.basic["password"] = "univention"
-            udm_user.basic["shortDescription"] = "FOOBAR"
-            udm_user.basic["city"] = TEST_ATTRIBUTE_VALUE
-            udm_user.basic["organisation"] = "UNIVENTION"
-            # udm_user.basic[""]
-            print("[!] DER UDM USER : %s" % udm_user)
-
-            (udm_user_dn, ad_user_dn) = create_udm_user(udm, adc, udm_user, wait_for_sync)
-            print("Summary of users to be synchronized:\n\tudm_user_dn:\t%s,\n\ts4_user_dn:\t%s" % (udm_user_dn, ad_user_dn))
-
-
-            # verify, that the extended attribute has been written into the ad user
-            # ad_user_dn = 'CN=r3145nu77a,CN=users,DC=windom,DC=test'
-            self.assertTrue(adc.exists(ad_user_dn))
-            self.assertEqual(adc.get_attribute(ad_user_dn, 'company'), [TEST_ATTRIBUTE_VALUE])
-
-            # attribute = self.check_ad_attribute(adc, ad_user_dn, "displayName")
-            # retval = adc.get(dn, ['lastname', 'firstname', 'description', 'telephoneNumber', 'givenName', 'sn', 'samAccountName', 'l'])
-
-            # raise Exception("Test failed: Extended attribute has not been passed over into the active directory under another name.")
-
-            # tcommon.verify_udm_object("users/user", udm_user_dn, {ucs_attribute: all_values})
-            # udm.create_object(
-            #     "users/user",
-            #     position="cn=users,dc=testosteron,dc=intranet",
-            #     **udm_user.basic
-            # )
-
-            # dn = self.create_test_attribute(udm)
-            # print("Test attribute: %s" % dn)
-            #
-            # wait_for_sync()
-
-            # (basic_ad_user, ad_user_dn, udm_user_dn) = create_con_user(
-            #     adc, self.udm_user, wait_for_sync)
-
-
-
-
-
-            # delete_con_user(adc, ad_user_dn, udm_user_dn, adconnector.wait_for_sync)
-
-    def create_test_attribute(self, udm, attr='univentionFreeAttribute20'):
-        extension_type = 'module'
-        extension_name = get_extension_name(extension_type)
-
-        with ucr_test.UCSTestConfigRegistry() as ucr:
-            ucr.load()
-            print(self.udm_user)
-            kwargs = dict(name=self.udm_user.user['username'], ldapMapping='foo', objectClass='bar', shortDescription='test', valueRequired='1', CLIName='test', module=['users/user'])
-
-            with pytest.raises(udm_test.UCSTestUDM_CreateUDMObjectFailed):
-                udm.create_object('settings/extended_attribute', position='cn=custom attributes,cn=univention,%s' % ucr['ldap/base'], **kwargs)
-            kwargs['default'] = 'foo'
-            extattr_dn = udm.create_object('settings/extended_attribute', position='cn=custom attributes,cn=univention,%s' % ucr['ldap/base'], **kwargs)
-
-            # extattr_dn = udm.create_object(
-            #     'settings/extended_attribute',
-            #     position='cn=custom attributes,cn=univention,%s' % ucr['ldap/base'], **kwargs)
-
-            return extattr_dn
-
-    def check_ad_attribute(self, adc, dn, attr='univentionFreeAttribute20'):
-        try:
-            return adc.get(adc.get(dn, [attr]))
-        except NO_SUCH_OBJECT:
-            print("object not found: %s" % e.message)
+        # check the value from the mapping
+        self.assertEqual(self.adc.get_attribute(ad_user_dn, 'company'), [test_string])
 
 
 if __name__ == "__main__":
     unittest.main()
 
-
-# vim: filetype=python noexpandtab tabstop=4 shiftwidth=4 softtabstop=4
+# vim: filetype=python expandtab tabstop=4 shiftwidth=4 softtabstop=4
