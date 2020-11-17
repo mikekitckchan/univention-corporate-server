@@ -40,26 +40,6 @@ TEST_ATTRIBUTE_VALUE="BREMEN"
 
 class TestADCustomMappings(unittest.TestCase):
     def setUp(self):
-        # TODO: this is a prototype and has to be tested
-        pass
-
-    def tearDown(self):
-        try:
-            # os.remove(self.mapping_file)
-            # os.rmdir(self.mapping_file_dir)
-            pass
-        except OSError:
-            print("Surprising, that there is nothing to remove from this test.")
-        # deactivate mapping by restarting the ad-connector after file has
-        # gone...
-        restart_adconnector()
-
-    # def runTest(self):
-    def test_ldap_to_ad_with_mapping(self):
-        # this test will try to create a mapping so that the
-        # univentionFreeAttribute20 will be available in AD as a DisplayName
-        # attribute for each user.
-        #
         self.mapping_file = "/etc/univention/connector/ad/localmapping.py"
         self.mapping_file_dir = os.path.dirname(self.mapping_file)
 
@@ -85,6 +65,22 @@ class TestADCustomMappings(unittest.TestCase):
         print("Using as test-mapping:\n%s" % TEST_MAPPING)
         # activate mapping by restarting the ad-connector...
         restart_adconnector()
+
+    def tearDown(self):
+        try:
+            os.remove(self.mapping_file)
+            # deactivate mapping by restarting the ad-connector after file has
+            # gone...
+            restart_adconnector()
+        except OSError:
+            print("Surprising, that there is nothing to remove from this test.")
+
+    # def runTest(self):
+    def test_ldap_to_ad_with_mapping(self):
+        # this test will try to create a mapping so that the
+        # univentionFreeAttribute20 will be available in AD as a DisplayName
+        # attribute for each user.
+        #
 
         # udm = udm_test.UCSTestUDM()
         #
@@ -126,6 +122,8 @@ class TestADCustomMappings(unittest.TestCase):
             udm_user.basic["shortDescription"] = "FOOBAR"
             udm_user.basic["city"] = TEST_ATTRIBUTE_VALUE
             udm_user.basic["organisation"] = "UNIVENTION"
+            # udm_user.basic[""]
+            print("[!] DER UDM USER : %s" % udm_user)
 
             (udm_user_dn, ad_user_dn) = create_udm_user(udm, adc, udm_user, wait_for_sync)
             print("Summary of users to be synchronized:\n\tudm_user_dn:\t%s,\n\ts4_user_dn:\t%s" % (udm_user_dn, ad_user_dn))
@@ -191,3 +189,6 @@ class TestADCustomMappings(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+# vim: filetype=python noexpandtab tabstop=4 shiftwidth=4 softtabstop=4

@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+#\ -*- coding: utf-8 -*-
 #
 # Univention AD Connector
 #  this file defines the mapping between AD and UCS
@@ -29,6 +29,9 @@
 # License with the Debian GNU/Linux or Univention distribution in file
 # /usr/share/common-licenses/AGPL-3; if not, see
 # <https://www.gnu.org/licenses/>.
+
+
+import os, sys
 
 import univention.connector.ad
 import univention.connector.ad.mapping
@@ -465,48 +468,50 @@ if configRegistry.get('connector/ad/mapping/group/language') not in ['de', 'DE']
 
 def apply_custom_mapping(ad_mapping):
 
-	# to allow a customer-specific mapping we want to load parts of this
-	# file dynamically from another file. For that we use importlib the
-	# successor of the imp module from python2. This function will return
-	# its ad_mapping unmodified if an error occurs within the custom
-	# mapping file.
-	#
+	"""
+	to allow a customer-specific mapping we want to load parts of this
+	file dynamically from another file. For that we use importlib the
+	successor of the imp module from python2. If no such localmapping.py
+	file exists this is no mistake and will be silently ignored.
+	"""
 
-	mapping_path = os.path.dirname(__file__)
-	sys.path.append(mapping_path)
-	
+	mapping = None
 	try:
-		from importlib import import_module
-	except ImportError:
-		try:
-			from imp import load_source as import_module
-		except ImportError as e:
-			print(
-				"Could neither load importlib (python3.1) nor"
-				"imp (python2) module: %s" % e.message
+		import six
+		if six.PY3:
+			import importlib.util
+
+			spec = importlib.util.spec_from_file_location(
+				'localmapping', os.path.join(os.path.dirname(__file__), 'localmapping.py')
 			)
-			return ad_mapping
 
+			mapping = importlib.util.module_from_spec(spec)
+			spec.loader.exec_module(mapping)
 
-	try:
-		localmapping = import_module('localmapping', mapping_path)
+			mapping = mapping.mapping_hook(ad_mapping)
+		else:
+			# deprecated with python3.4
+			import imp
 
-		# execte the mapping_hook within the dynamically loaded file and return
-		# its result...
-		return localmapping.apply_custom_mapping(univention, ad_mapping)
+			mapping = imp.load_source(
+				'localmapping', os.path.join(os.path.dirname(__file__), 'localmapping.py')
+			).mapping_hook
 
-	except Exception as e:
-		print("Info: Will not be using a custom mapping: %s" % e.message)
+	except IOError:
+		# ignore file not found and other file read errors (e.g. permissions)
+		pass
+	except AttributeError as e:
+		print(
+			"Wrong function signature. Please implement a function"
+			"mapping_hook(ad_connector_mapping) in localmapping.py: %s" % e)
+		pass
+
+	if mapping:
+		return mapping(ad_mapping)
+	else:
 		return ad_mapping
-
-	except Exception as e:
-
-		# catch any exception, because it is not predictable which
-		# exceptions exist. Do not apply the mapping, keep it as it is
-		# with this file, but write a log message.
-
-		print("Unable to apply local mapping: %s" % e.message)
-		return ad_mapping
-
 
 ad_mapping = apply_custom_mapping(ad_mapping)
+
+
+# vim: filetype=python noexpandtab tabstop=4 shiftwidth=4 softtabstop=4
