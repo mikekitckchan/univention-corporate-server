@@ -55,13 +55,17 @@ case "$1" in
 			check_autostart "$NAME" umc/server/autostart
 		fi
 		log_daemon_msg "Starting $DESC" "$NAME"
-		"$DAEMON" start
+		"$DAEMON"
 		log_end_msg $?
 		;;
 	stop)
 		log_daemon_msg "Stopping $DESC" "$NAME"
-		"$DAEMON" stop
-		log_end_msg $?
+		if [ -n "$pid" -a -d "/proc/$pid" ]; then
+			kill "$pid"  # FIXME: check if running and matches our process
+			log_end_msg $?
+		else
+			log_action_msg "$DESC is not running, no need to stop."
+		fi
 		;;
 	restart)
 		# check UCR autostart setting
@@ -70,13 +74,22 @@ case "$1" in
 			check_autostart "$NAME" umc/server/autostart
 		fi
 		log_daemon_msg "Restarting $DESC" "$NAME"
-		"$DAEMON" restart
+		if [ -n "$pid" -a -d "/proc/$pid" ]; then
+			kill "$pid"  # FIXME: check if running and matches our process
+		fi
+		sleep 3
+		"$DAEMON"
 		log_end_msg $?
 		;;
 	reload)
 		log_daemon_msg "Reloading $DESC" "$NAME"
-		"$DAEMON" reload
-		log_end_msg $?
+		pid="$(cat "$PIDFILE" 2>/dev/null)"
+		if [ -n "$pid" -a -d "/proc/$pid" ]; then
+			kill -SIGUSR1 "$pid"
+			log_end_msg $?
+		else
+			log_action_msg "$DESC is not running, no need to reload."
+		fi
 		;;
 	status)
 		status_of_proc -p "$PIDFILE" "$DAEMON" "$DESC"
