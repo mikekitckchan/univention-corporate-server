@@ -344,6 +344,7 @@ class Resource(tornado.web.RequestHandler):
 		self.request.content_negotiation_lang = 'json'
 		self.decode_request_arguments()
 		self.current_user.reset_connection_timeout()
+		# self.check_saml_session_validity()
 
 	@property
 	def lo(self):
@@ -357,10 +358,9 @@ class Resource(tornado.web.RequestHandler):
 		try:
 			json_ = json.loads(body)
 			if not isinstance(json_, dict):
-				raise BadRequest('JSON document have to be dict')
+				raise BadRequest(self._('JSON document have to be dict'))
 		except ValueError:
-			self._x_log('error', 'cannot parse JSON body')
-			raise BadRequest('Invalid JSON document')
+			raise BadRequest(self._('Invalid JSON document'))
 		return json_
 
 	def decode_request_arguments(self):
@@ -417,6 +417,9 @@ class NewSession(Resource):
 
 class Auth(Resource):
 
+	def parse_authorization(self):
+		return  # do not call super method, prevent basic auth
+
 	@tornado.gen.coroutine
 	def get(self):
 		#request.body = sanitize_args(DictSanitizer(dict(
@@ -425,11 +428,26 @@ class Auth(Resource):
 		#	auth_type=StringSanitizer(allow_none=True),
 		#	new_password=StringSanitizer(required=False, allow_none=True),
 		#)), 'request', {'request': request.body})
+
+		try:
+			content_length = int(self.request.headers.get("Content-Length", 0))
+		except ValueError:
+			content_length = None
+		if not content_length and content_length != 0:
+			CORE.process('auth: missing Content-Length header')
+			raise HTTPError(LENGTH_REQUIRED)
+
+		if self.request.method in ('POST', 'PUT'):
+			max_length = 2000 * 1024
+			if content_length >= max_length:  # prevent some DoS
+				raise HTTPError(REQUEST_ENTITY_TOO_LARGE, 'Request data is too large, allowed length is %d' % max_length)
+
 		CORE.info('Reloading resources: UCR, modules, categories')
 		ucr.load()
 		moduleManager.load()
 		categoryManager.load()
 
+		self.request.body_arguments['auth_type'] = None
 		self.request.body_arguments['locale'] = self.locale.code
 		session = self.current_user
 		result = yield session.authenticate(self.request)

@@ -56,7 +56,6 @@ from six.moves.urllib_parse import urlparse, urlunsplit, quote
 from six.moves.http_client import REQUEST_ENTITY_TOO_LARGE, LENGTH_REQUIRED, NOT_FOUND, BAD_REQUEST, UNAUTHORIZED, SERVICE_UNAVAILABLE
 
 import six
-from six.moves import queue as Queue
 import notifier
 from ipaddress import ip_address
 from cherrypy.lib.httputil import valid_status
@@ -67,7 +66,7 @@ from concurrent.futures import ThreadPoolExecutor
 from multiprocessing import Manager
 
 import univention.debug as ud
-from univention.management.console.protocol import Request, Response, Client, NoSocketError, TEMPUPLOADDIR
+from univention.management.console.protocol import Request, TEMPUPLOADDIR
 from univention.management.console.log import CORE, log_init, log_reopen
 from univention.management.console.config import ucr, get_int
 from univention.management.console.protocol.session import Auth, Upload, Command, UCR, Meta, Info, Modules, Categories, UserPreferences, Hosts, SetPassword, SetLocale, SetUserPreferences
@@ -114,171 +113,28 @@ class NotFound(HTTPError):
 		super(NotFound, self).__init__(404)
 
 
-class SessionClient(object):
-
-	__slots__ = ('authenticated', 'client', '_requestid2response_queue', '_lock', 'ip')
-
-	def __init__(self, ip=None):
-		CORE.info('SessionClient(0x%x): creating new session' % (id(self),))
-		self.authenticated = False
-		self.client = Client()
-		self.client.signal_connect('authenticated', self._authenticated)
-		self.client.signal_connect('response', self._response)
-		self.client.signal_connect('closed', self._closed)
-		try:
-			self.client.connect()
-			CORE.info('SessionClient(0x%x): connected to UMC server' % (id(self),))
-		except NoSocketError:
-			CORE.warn('SessionClient(0x%x): connection to UMC server failed' % (id(self),))
-			raise NoSocketError('Connection failed')
-		self._requestid2response_queue = {}
-		self._lock = threading.Lock()
-		self.ip = ip
-
-	def _authenticated(self, success, response):
-		"""Callback function for 'authenticated' from UMCP-Server."""
-		CORE.process('SessionClient(0x%x): _authenticated: success=%s  status=%s  message=%s result=%r' % (id(self), success, response.status, response.message, response.result))
-		self.authenticated = success
-		self._response(response)
-
-	def _response(self, response):
-		"""Queue response from UMC server."""
-		self._lock.acquire()
-		try:
-			try:
-				# get and remove queue for response
-				queue = self._requestid2response_queue.pop(response.id)[0]
-			except KeyError:
-				CORE.process('SessionClient(0x%x): no request(%s) found: status=%s' % (id(self), response.id, response.status))
-			else:
-				CORE.info('SessionClient(0x%x): got response(%s): status=%s queue=0x%x' % (id(self), response.id, response.status, id(queue)))
-				queue.put(response)
-		finally:
-			self._lock.release()
-
-	def send_request(self, request, response_queue):
-		"""Send request to UMC server."""
-		CORE.info('SessionClient(0x%x): sending request(%s)' % (id(self), request.id))
-		self._lock.acquire()
-		try:
-			self._requestid2response_queue[request.id] = (response_queue, request)
-		finally:
-			self._lock.release()
-		try:
-			self.client.request(request)
-		except IOError:
-			CORE.error(traceback.format_exc())
-			self.client.disconnect()
-			return
-
-	def _closed(self):
-		message = '\n'.join((
-			'The connection to the Univention Management Console Server broke up unexpectedly. ',
-			'If you have root permissions on the system you can restart UMC by executing the following commands:',
-			' * service univention-management-console-server restart',
-			' * service univention-management-console-web-server restart',
-			'Otherwise please contact an administrator or try again later.'
-		))
-		for id, (queue, request) in list(self._requestid2response_queue.items()):
-			self._requestid2response_queue.pop(id)
-			response = Response(request)
-			response.status = SERVICE_UNAVAILABLE
-			response.reason = 'UMC Service restarting'
-			response.message = message
-			queue.put(response)
-
-	def cleanup_request(self, request):
-		"""Remove request from mapping."""
-		self._lock.acquire()
-		try:
-			del self._requestid2response_queue[request.id]
-		finally:
-			self._lock.release()
-
-
 class UMCP_Dispatcher(object):
 
 	"""Dispatcher used to exchange the requests between CherryPy and UMC"""
-	# sessionid ==> SessionClient
 	sessions = {}
-	_queue_send = Queue.Queue()
-
-	@classmethod
-	def check_queue(cls):
-		while True:
-			try:
-				queuerequest = cls._queue_send.get_nowait()
-			except Queue.Empty:
-				# Queue is empty - nothing to do (for now)
-				return True
-			try:
-				cls.dispatch(queuerequest)
-			except Exception as exc:
-				CORE.process('Failed to create UMC connection: %s' % (exc,))
-				response = Response(queuerequest.request)
-				response.status = 500
-				response.message = traceback.format_exc()
-				queuerequest.response_queue.put(response)
-
-	@classmethod
-	def dispatch(cls, queuerequest):
-		CORE.info('UMCP_Dispatcher: check_queue: new request: 0x%x' % (id(queuerequest),))
-
-		client = cls.sessions.get(queuerequest.sessionid)
-		if client is None:
-			try:
-				client = SessionClient(ip=queuerequest.ip)
-			except NoSocketError as exc:
-				CORE.process('Failed to create UMC connection: %s' % (exc,))
-				response = Response(queuerequest.request)
-				response.status = SERVICE_UNAVAILABLE
-				response.reason = 'UMC Service Unavailable'
-				response.message = '\n'.join((
-					'The Univention Management Console Server is currently not running. ',
-					'If you have root permissions on the system you can restart it by executing the following command:',
-					' * service univention-management-console-server restart',
-					'The following logfile may contain information why the server is not running:',
-					' * /var/log/univention/management-console-server.log',
-					'Otherwise please contact an administrator or try again later.'
-				))
-				queuerequest.response_queue.put(response)
-				return
-
-			cls.sessions[queuerequest.sessionid] = client
-			callback = notifier.Callback(cls.cleanup_session, queuerequest.sessionid)
-			client.client.signal_connect('closed', callback)
-
-		# bind session to IP
-		if queuerequest.ip != client.ip and not (queuerequest.ip in ('127.0.0.1', '::1') and client.ip in ('127.0.0.1', '::1')):
-			CORE.warn('The sessionid (ip=%s) is not valid for this IP address (%s)' % (client.ip, queuerequest.ip))
-			response = Response(queuerequest.request)
-			response.status = UNAUTHORIZED
-			response.message = 'The current session is not valid with your IP address for security reasons. This might happen after switching the network. Please login again.'
-			# very important! We must expire the session cookie, with the same path, otherwise one ends up in a infinite redirection loop after changing the IP address (e.g. because switching from VPN to regular network)
-			for name in queuerequest.request.cookies:
-				if name.startswith('UMCSessionId'):
-					response.cookies[name] = {
-						'expires': datetime.datetime.fromtimestamp(0),
-						'path': '/univention/',
-						'version': 1,
-						'value': '',
-					}
-			queuerequest.response_queue.put(response)
-			return
-
-		if queuerequest.request.command == 'AUTH':
-			CORE.info('Sending authentication request for user %r' % (queuerequest.request.body.get('username'),))
-
-		client.send_request(queuerequest.request, queuerequest.response_queue)
-
-	@classmethod
-	def cleanup_session(cls, sessionid):
-		"""Removes a session when the connection to the UMC server has died or the session is expired"""
-		try:
-			del cls.sessions[sessionid]
-			CORE.info('Cleaning up session %r' % (sessionid,))
-		except KeyError:
-			CORE.info('Session %r not found' % (sessionid,))
+#
+#		# bind session to IP
+#		if queuerequest.ip != client.ip and not (queuerequest.ip in ('127.0.0.1', '::1') and client.ip in ('127.0.0.1', '::1')):
+#			CORE.warn('The sessionid (ip=%s) is not valid for this IP address (%s)' % (client.ip, queuerequest.ip))
+#			response = Response(queuerequest.request)
+#			response.status = UNAUTHORIZED
+#			response.message = 'The current session is not valid with your IP address for security reasons. This might happen after switching the network. Please login again.'
+#			# very important! We must expire the session cookie, with the same path, otherwise one ends up in a infinite redirection loop after changing the IP address (e.g. because switching from VPN to regular network)
+#			for name in queuerequest.request.cookies:
+#				if name.startswith('UMCSessionId'):
+#					response.cookies[name] = {
+#						'expires': datetime.datetime.fromtimestamp(0),
+#						'path': '/univention/',
+#						'version': 1,
+#						'value': '',
+#					}
+#			queuerequest.response_queue.put(response)
+#			return
 
 
 class UploadManager(dict):
@@ -303,27 +159,6 @@ class UploadManager(dict):
 
 
 _upload_manager = UploadManager()
-
-
-class QueueRequest(object):
-
-	"""Element for the request queue containing the assoziated session
-	ID, the request object, a response queue and the request ip address.
-
-	:param sessionid: str
-	:param request: ´univention.management.console.protocol.message.Request´
-	:param response_queue: ´Queue.Queue´
-	:param ip: str
-	:param timeout: int
-	"""
-
-	__slots__ = ('sessionid', 'request', 'response_queue', 'ip')
-
-	def __init__(self, sessionid, request, response_queue, ip):
-		self.sessionid = sessionid
-		self.request = request
-		self.response_queue = response_queue
-		self.ip = ip
 
 
 class User(object):
@@ -506,12 +341,10 @@ class Application(TApplication):
 		tornado.locale.load_gettext_translations('/usr/share/locale', 'univention-management-console')
 		super(Application, self).__init__([
 			(r'/auth/sso', AuthSSO),
-			(r'/auth/?', CPAuth),
-			#(r'/auth/?', Auth),
+			(r'/auth/?', Auth),
 			(r'/upload/', Upload),
 			(r'/upload/(.+)', Command),
 			(r'/command/(.+)', Command),
-			#(r'/(?:command|upload)(?:/(.*))?', CPCommand),
 			(r'/get/session-info', SessionInfo),
 			(r'/get/ip-address', GetIPAdress),
 			(r'/get/ucr', UCR),
@@ -521,11 +354,9 @@ class Application(TApplication):
 			(r'/get/categories', Categories),
 			(r'/get/user/preferences', UserPreferences),
 			(r'/get/hosts', Hosts),
-			#(r'/get/(.+)', CPGet),
 			(r'/set/password', SetPassword),
 			(r'/set/locale', SetLocale),
 			(r'/set/user/preferences', SetUserPreferences),
-			#(r'/set/?()', CPSet),
 			(r'/saml/', SamlACS),
 			(r'/saml/metadata', SamlMetadata),
 			(r'/saml/slo/?', SamlSingleLogout),
@@ -814,152 +645,6 @@ class Resource(RequestHandler):
 		notifier.timer_add(1000, lambda: self._session_timeout_timer(user))
 
 
-class CPgeneric(Resource):
-
-	def get_request(self, path, args):
-		return Request(['generic'], opts={})
-
-	def add_request_headers(self, request):
-		request.http_method = self.request.method
-		request.headers = dict(self.request.headers.items())
-		request.headers.pop('Cookie', None)
-		if six.PY2:
-			request.cookies = dict((x.key.decode('ISO8859-1'), x.value.decode('ISO8859-1')) for x in self.request.cookies.values())
-		else:
-			request.cookies = dict((x.key, x.value) for x in self.request.cookies.values())
-		for name, value in list(request.cookies.items()):
-			if name == self.suffixed_cookie_name('UMCSessionId'):
-				request.cookies['UMCSessionId'] = value
-
-	def add_response_headers(self, response):
-		if response.headers:
-			for key, val in response.headers.items():
-				self.set_header(key, val)
-		for key, item in response.cookies.items():
-			if six.PY2 and not isinstance(key, bytes):
-				key = key.encode('utf-8')  # bug in python Cookie!
-			if not isinstance(item, dict):
-				item = {'value': item}
-			self.set_cookie(key, **item)
-		if isinstance(response.body, dict):
-			response.body.pop('headers', None)
-			response.body.pop('cookies', None)
-
-	def load_json(self, body):
-		try:
-			json_ = json.loads(body)
-			if not isinstance(json_, dict):
-				raise HTTPError(BAD_REQUEST, 'JSON document have to be dict')
-		except ValueError:
-			self._x_log('error', 'cannot parse JSON body')
-			raise HTTPError(BAD_REQUEST, 'Invalid JSON document')
-		return json_
-
-	def get(self, path):
-		self._x_log('info', 'got new request')
-		self.check_saml_session_validity()
-		self.finish(self.get_response(self.create_sessionid(), path, self.get_arguments()))
-
-	def get_arguments(self):
-		if self.request.headers.get('Content-Type', '').startswith('application/json'):  # normal (json) request
-			# get body and parse json
-			body = u'{}'
-			if self.request.method in ('POST', 'PUT'):
-				if not self.request.headers.get(u"Content-Length"):
-					self._x_log('warn', 'missing Content-Length header')
-					raise HTTPError(LENGTH_REQUIRED, 'Missing Content-Length header')
-				body = self.request.body.decode('UTF-8', 'replace')
-
-			args = self.load_json(body)
-		else:
-			kwargs = dict((name, self.get_query_arguments(name)) for name in self.request.query_arguments)
-			kwargs = dict((name, value[0] if len(value) == 1 else value) for name, value in kwargs.items())
-			# request is not json
-			args = {'options': kwargs}
-			if 'flavor' in kwargs:
-				args['flavor'] = kwargs['flavor']
-		return args
-
-	def get_response(self, sessionid, path, args):
-		# create new UMCP request
-		req = self.get_request(path, args)
-
-		user = self.get_user()
-		client = UMCP_Dispatcher.sessions.get(sessionid)
-		if user and (user.password or user.saml) and (not client or not client.authenticated):
-			auth = Request('AUTH')
-			auth.body = {
-				'username': user.username,
-				'password': user.get_umc_password(),
-				'auth_type': user.get_umc_auth_type(),
-			}
-			try:
-				self.make_queue_request(sessionid, auth)
-			except UMC_HTTPError:
-				self.expire_session()
-				raise
-			else:
-				self.set_session(sessionid, user.username, password=user.password)
-
-		response = self.make_queue_request(sessionid, req)
-		body = response.body
-		if response.mimetype == 'application/json':
-			body = json.dumps(response.body).encode('ASCII')
-
-		return body
-
-	def make_queue_request(self, sessionid, request):
-		"""Appends a UMCP request to the queue and waits/blocks until the response is available"""
-
-		self.add_request_headers(request)
-		self.set_accept_language(request)
-
-		response_queue = Queue.Queue()
-		user = self.get_user()
-
-		queue_request = QueueRequest(sessionid, request, response_queue, self.get_ip_address())
-		UMCP_Dispatcher._queue_send.put(queue_request)
-		if user:
-			user.reset_timeout()
-
-		self._x_log(99, 'queue(0x%x): sessionid=%r' % (id(response_queue), sessionid,))
-		self._x_log('info', 'pushed request(%s) to queue(0x%x) - waiting for response' % (request.id, id(response_queue)))
-		response = response_queue.get()
-		self._x_log('info', 'got response(%s) from queue(0x%x): status=%s' % (response.id, id(response_queue), response.status))
-
-		self.add_response_headers(response)
-
-		status = response.status or 200  # status is not set if not json
-		if 200 <= status < 300:
-			self.set_header('Content-Type', response.mimetype)
-			self.set_status(status)
-			return response
-		elif 300 <= status < 400:
-			self.set_status(status)
-			self.set_header('Location', response.headers.get('Location', ''))
-			return response
-
-		# something bad happened
-		self._x_log('error', 'response status code: %s' % (response.status,))
-		self._x_log('error', 'response reason: %s' % (response.reason,))
-		self._x_log('error', 'response message: %s' % (response.message,))
-		self._x_log('error', 'response result: %s' % (response.result,))
-		if response.error:
-			self._x_log('error', 'response error: %r' % (response.error,))
-		raise UMC_HTTPError(response.status, response.message, response.result, response.error, response.reason)
-
-	def set_accept_language(self, request):
-		# set language based on Accept-Language header
-		try:
-			languages = [lang for lang, qvalue in self.check_acceptable('Accept-Language', '') if qvalue > 0]
-		except Exception as exc:
-			CORE.warn('malformed Accept-Language header: %s' % (exc,))
-			languages = []
-
-		# pre parse the HTTP syntax so that the UMC-Server doesn't need to do this (because there are no utility functions there)
-		request.headers['Accept-Language'] = ', '.join(languages) or 'en-US'
-
-
 def json_response(func):
 	@functools.wraps(func)
 	def decorator(self):
@@ -1039,25 +724,7 @@ class GetIPAdress(Resource):
 		return self.get(path)
 
 
-class CPGet(CPgeneric):
-
-	def get_request(self, path, args):
-		return Request('GET', arguments=[path], options=args.get('options', {}))
-
-	def post(self, path):
-		return self.get(path)
-
-
-class CPSet(CPgeneric):
-
-	def get_request(self, path, args):
-		return Request('SET', options=args.get('options', {}))
-
-	def post(self, path):
-		return self.get(path)
-
-
-class CPCommand(CPgeneric):
+class CPCommand(Resource):
 
 	def post(self, path):
 		return self.get(path)
@@ -1145,7 +812,7 @@ class CPCommand(CPgeneric):
 		}
 
 
-class AuthSSO(CPgeneric):
+class AuthSSO(Resource):
 
 	def parse_authorization(self):
 		return  # do not call super method, prevent basic auth
@@ -1192,45 +859,7 @@ class AuthSSO(CPgeneric):
 		return self.get()
 
 
-class CPAuth(Auth, CPgeneric):
-
-	def parse_authorization(self):
-		return  # do not call super method, prevent basic auth
-
-	def _get(self):
-		self._x_log('info', 'CPAuth/auth: got new auth request')
-
-		try:
-			content_length = int(self.request.headers.get("Content-Length", 0))
-		except ValueError:
-			content_length = None
-		if not content_length and content_length != 0:
-			CORE.process('auth: missing Content-Length header')
-			raise HTTPError(LENGTH_REQUIRED)
-
-		if self.request.method in ('POST', 'PUT'):
-			max_length = 2000 * 1024
-			if content_length >= max_length:  # prevent some DoS
-				raise HTTPError(REQUEST_ENTITY_TOO_LARGE, 'Request data is too large, allowed length is %d' % max_length)
-
-		data = self.get_arguments()
-
-		CORE.info('auth: request: command=%s' % (self.request.uri,))
-
-		# create a sessionid if the user is not yet authenticated
-		sessionid = self.create_sessionid(True)
-
-		# create new UMCP request
-		req = Request('AUTH')
-		req.body = data.get('options', {})
-		req.body['auth_type'] = None
-		self.finish(self._auth_request(req, sessionid))
-
-	def _post(self):
-		return self.get()
-
-
-class SAMLBase(CPgeneric):
+class SAMLBase(Resource):
 
 	SP = None
 	configfile = '/usr/share/univention-management-console/saml/sp.py'

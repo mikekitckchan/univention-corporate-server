@@ -324,9 +324,15 @@ class Handler(RequestHandler):
 			msg.cookies = dict((x.key.decode('ISO8859-1'), x.value.decode('ISO8859-1')) for x in self.request.cookies.values())
 		else:
 			msg.cookies = dict((x.key, x.value) for x in self.request.cookies.values())
+		for name, value in list(request.cookies.items()):
+			if name == self.suffixed_cookie_name('UMCSessionId'):
+				msg.cookies['UMCSessionId'] = value
 		msg.request_handler = self
 		MODULE.process('Received request %r' % ((msg.options, msg.flavor, method, username, password, user_dn, auth_type, locale),))
 		self.server.handle(msg, method, username, password, user_dn, auth_type, locale)
+
+	def suffixed_cookie_name(self, cookie_name):
+		return cookie_name  # FIXME/TODO
 
 	def parse_authorization(self):
 		credentials = self.request.headers.get('Authorization')
