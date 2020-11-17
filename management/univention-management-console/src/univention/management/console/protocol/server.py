@@ -316,7 +316,7 @@ class SamlError(HTTPError):
 
 	@error(status=500)
 	def missing_key(self, exc):
-		return self._('The issuer %r is now known to the SAML service provider. This is probably a misconfiguration and might be resolved by restarting the univention-management-console-web-server.') % (str(exc),)
+		return self._('The issuer %r is now known to the SAML service provider. This is probably a misconfiguration and might be resolved by restarting the univention-management-console-server.') % (str(exc),)
 
 	@error
 	def signature_error(self, exc):
