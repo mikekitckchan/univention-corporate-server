@@ -1,3 +1,27 @@
+ucs-test (9.0.5-24) unstable; urgency=medium
+
+  * Bug 52303: Fetching meta.json should involve UMC only if really needed
+
+ -- Dirk Wiesenthal <wiesenthal@univention.de>  Tue, 17 Nov 2020 20:46:10 +0100
+
+ucs-test (9.0.5-23) unstable; urgency=medium
+
+  * Bug #52364: added 52_s4connector/515test_group_cache_after_move
+
+ -- Felix Botner <botner@univention.de>  Tue, 17 Nov 2020 14:05:56 +0100
+
+ucs-test (9.0.5-22) unstable; urgency=medium
+
+  * Bug #52318: test reason phrase is set
+
+ -- Florian Best <best@univention.de>  Thu, 12 Nov 2020 10:44:56 +0100
+
+ucs-test (9.0.5-21) unstable; urgency=medium
+
+  * Bug #37103: added 00_checks/60_check_kernel_sys_fs_value
+
+ -- Jan Luttermann <luttermann@univention.de>  Mon, 09 Nov 2020 14:40:30 +0100
+
 ucs-test (9.0.5-20) unstable; urgency=medium
 
   * Bug #51929: added 55_adconnector/504_test_group_cache_after_move

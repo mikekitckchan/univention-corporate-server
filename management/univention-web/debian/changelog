@@ -1,3 +1,27 @@
+univention-web (3.0.5-52) unstable; urgency=medium
+
+  * Bug 52303: rm maintscript
+
+ -- Dirk Wiesenthal <wiesenthal@univention.de>  Tue, 17 Nov 2020 22:45:44 +0100
+
+univention-web (3.0.5-51) unstable; urgency=medium
+
+  * Bug 52303: mv_conffile in maintscript
+
+ -- Dirk Wiesenthal <wiesenthal@univention.de>  Tue, 17 Nov 2020 22:06:49 +0100
+
+univention-web (3.0.5-50) unstable; urgency=medium
+
+  * Bug 52303: Fetching meta.json should involve UMC only if really needed
+
+ -- Dirk Wiesenthal <wiesenthal@univention.de>  Tue, 17 Nov 2020 20:43:35 +0100
+
+univention-web (3.0.5-49) unstable; urgency=medium
+
+  * Bug #52321: reduce polling of get/session-info
+
+ -- Florian Best <best@univention.de>  Mon, 09 Nov 2020 17:27:02 +0100
+
 univention-web (3.0.5-48) unstable; urgency=medium
 
   * Bug #52222: add max-age of 1 year to CookieBanner

@@ -1,3 +1,28 @@
+univention-portal (3.0.2-13) unstable; urgency=medium
+
+  * Bug 52302: Remove call to /univention/get/modules for every page load
+
+ -- Dirk Wiesenthal <wiesenthal@univention.de>  Tue, 17 Nov 2020 21:26:25 +0100
+
+univention-portal (3.0.2-12) unstable; urgency=medium
+
+  * Bug 52303: Fetching meta.json should involve UMC only if really needed
+
+ -- Dirk Wiesenthal <wiesenthal@univention.de>  Tue, 17 Nov 2020 20:45:33 +0100
+
+univention-portal (3.0.2-11) unstable; urgency=medium
+
+  * Bug #52355: Immediate negative result if anonymous user is checked against
+    a restricted portal entry
+
+ -- Dirk Wiesenthal <wiesenthal@univention.de>  Thu, 12 Nov 2020 11:33:23 +0100
+
+univention-portal (3.0.2-10) unstable; urgency=medium
+
+  * Bug #52345: do not fetch portal.json multiple times
+
+ -- Florian Best <best@univention.de>  Tue, 10 Nov 2020 20:00:07 +0100
+
 univention-portal (3.0.2-9) unstable; urgency=medium
 
   * Bug #50302: add cookie banner

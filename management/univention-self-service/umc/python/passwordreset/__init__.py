@@ -123,7 +123,7 @@ def prevent_denial_of_service(func):
 
 	def _check_limits(memcache, limits):
 		limit_reached = False
-		_max_wait = datetime.datetime.now()
+		_max_wait = datetime.datetime.utcnow()
 		for key, decay, limit in limits:
 			# Not really a "decay", as for that we'd have to store the date for
 			# each request. Then a moving window could be implemented. But
@@ -140,7 +140,7 @@ def prevent_denial_of_service(func):
 				memcache.set_multi(
 					{
 						key: count,
-						"{}:exp".format(key): datetime.datetime.now() + datetime.timedelta(seconds=decay)
+						"{}:exp".format(key): datetime.datetime.utcnow() + datetime.timedelta(seconds=decay)
 					},
 					decay
 				)
@@ -179,7 +179,7 @@ def prevent_denial_of_service(func):
 		user_limit_reached, user_max_wait = _check_limits(self.memcache, user_limits)
 
 		if total_limit_reached or user_limit_reached:
-			time_s = _pretty_time((max(total_max_wait, user_max_wait) - datetime.datetime.now()).seconds)
+			time_s = _pretty_time((max(total_max_wait, user_max_wait) - datetime.datetime.utcnow()).total_seconds())
 			raise ConnectionLimitReached(time_s)
 
 		return func(self, *args, **kwargs)
@@ -878,7 +878,7 @@ class Instance(Base):
 			MODULE.info("Token not found in DB for user '{}'.".format(username))
 			raise TokenNotFound()
 
-		if (datetime.datetime.now() - token_from_db["timestamp"]).seconds >= self.token_validity_period:
+		if (datetime.datetime.utcnow() - token_from_db["timestamp"]).total_seconds() >= self.token_validity_period:
 			# token is correct but expired
 			MODULE.info("Receive correct but expired token for '{}'.".format(username))
 			self.db.delete_tokens(token=token, username=username)
@@ -919,12 +919,9 @@ class Instance(Base):
 	@staticmethod
 	def create_token(length):
 		# remove easily confusable characters
-		chars = string.ascii_letters.replace("l", "").replace("I", "").replace("O", "") + "".join(map(str, range(2, 10)))
+		chars = ''.join(set(string.ascii_letters) | set(string.digits) - {"0", "O", "1", "I", "l"})
 		rand = random.SystemRandom()
-		res = ""
-		for _ in range(length):
-			res += rand.choice(chars)
-		return res
+		return ''.join(rand.choice(chars) for _ in range(length))
 
 	def send_message(self, username, method, address, raise_on_success=True):
 		plugin = self._get_send_plugin(method)
@@ -1104,7 +1101,7 @@ class Instance(Base):
 	@machine_connection
 	def is_blacklisted(self, username, feature, ldap_connection=None, ldap_position=None):
 		def listize(li):
-			return [x.lower() for x in map(str.strip, li.split(",")) if x]
+			return [x.strip().lower() for x in li.split(",") if x.strip()]
 
 		bl_users = listize(ucr.get("umc/self-service/{}/blacklist/users".format(feature), ""))
 		bl_groups = listize(ucr.get("umc/self-service/{}/blacklist/groups".format(feature), ""))
@@ -1126,7 +1123,7 @@ class Instance(Base):
 			for group_dn in list(groups_dns):
 				groups_dns.extend(self.get_nested_groups(group_dn))
 			groups_dns = list(set(groups_dns))
-			gr_names = map(str.lower, self.dns_to_groupname(groups_dns))
+			gr_names = [x.lower() for x in self.dns_to_groupname(groups_dns)]
 		except IndexError:
 			# no user or no group found
 			return True

@@ -1,9 +1,28 @@
-include: '/.gitlab-ci/base.yml'
+include:
+  - template: 'Workflows/Branch-Pipelines.gitlab-ci.yml'
+  - local: '/.gitlab-ci/base.yml'
 
 generate-config:
   stage: build
+  rules:
+    - when: always
+  image:
+    name: $BUILD
+    entrypoint: [""]
   script:
     - .gitlab-ci/build-ci
+    - >
+      deb-builder
+      --yaml .gitlab-ci/base.yml
+      --yaml .gitlab-ci/base-deb.yml
+      --out generated-config-deb.yml
+      --skip src:univention-kernel-image-signed
+      --skip src:grub-efi-amd64-signed
+      --skip src:shim
+      --skip src:python-notifier
+      --skip src:univention-kvm-compat
+      --skip src:univention-foomatic-ppds
+      */*/debian/control
   artifacts:
     paths:
       - generated-config-doc.yml
@@ -11,13 +30,15 @@ generate-config:
 
 prepare aptly:
   stage: build
+  rules:
+    - when: always
   image: curlimages/curl
   script:
     - "$CI_PROJECT_DIR/.gitlab-ci/aptly-create || :"
     - $CI_PROJECT_DIR/.gitlab-ci/aptly-publish
   environment:
     name: $CI_COMMIT_REF_NAME
-    url: $APT/dists/$CI_COMMIT_REF_SLUG/
+    url: $APT/$CI_COMMIT_REF_SLUG/
     on_stop: drop aptly
     auto_stop_in: 6 month
 
@@ -29,16 +50,26 @@ drop aptly:
   script:
     - "curl --silent --show-error -X DELETE $APTLY/publish/$CI_COMMIT_REF_SLUG/git || :"
     - "curl --silent --show-error -X DELETE $APTLY/repos/$CI_COMMIT_REF_SLUG || :"
-  when: manual
+  rules:
+    - when: manual
+      allow_failure: true
   environment:
     name: $CI_COMMIT_REF_NAME
     action: stop
 
-.doc-pipeline:
+doc-pipeline:
   stage: test
   rules:
     - changes:
-      - doc/*/**/*
+      - "doc/[^e]*/**/*"
+      - "doc/e[^r]*/**/*"
+      - "doc/er[^r]*/**/*"
+      - "doc/err[^a]*/**/*"
+      - "doc/erra[^t]*/**/*"
+      - "doc/errat[^a]*/**/*"
+      - "doc/errata?*/**/*"
+  needs:
+    - generate-config
   trigger:
     include:
       - artifact: generated-config-doc.yml
@@ -47,6 +78,14 @@ drop aptly:
 
 deb-pipeline:
   stage: test
+  rules:
+    - changes:
+      - "[^d]*/*/**/*"
+      - "d[^o]*/*/**/*"
+      - "do[^c]*/*/**/*"
+      - "doc?*/*/**/*"
+  needs:
+    - generate-config
   trigger:
     include:
       - artifact: generated-config-deb.yml

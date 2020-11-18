@@ -6,10 +6,10 @@ src: univention-ad-connector
 fix: 13.0.0-56A~4.4.6.202011171954
 desc: |
  This update addresses the following issue(s):
- * The group membership synchronisation after moving
+ * The group membership synchronization after moving
    objects has been fixed.
  * Mappings from LDAP to Active Directory were made
    customizable for users. The manual has details on
    how to write a file 
    /etc/univention/connector/localmapping.py
-bug: [51929, 49981]
+bug: [51929, 52364, 49981]
