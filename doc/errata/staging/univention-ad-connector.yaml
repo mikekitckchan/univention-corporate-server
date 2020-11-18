@@ -10,6 +10,6 @@ desc: |
    objects has been fixed.
  * Mappings from LDAP to Active Directory were made
    customizable for users. The manual has details on
-   how to write a file 
+   how to write a file
    /etc/univention/connector/localmapping.py
 bug: [51929, 52364, 49981]

@@ -1,4 +1,4 @@
-#\ -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 #
 # Univention AD Connector
 #  this file defines the mapping between AD and UCS
