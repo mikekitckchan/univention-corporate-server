@@ -1420,7 +1420,6 @@ kein Gegenstück haben, werden ignoriert (bleiben also Mitglied der Gruppe).
 Zusätzlich wird die Beschreibung der Gruppe synchronisiert.
 </para>
 
-
 <section id="windows:gruppen:Besonderheiten"><title>Besonderheiten</title>
 <itemizedlist>
 <listitem><simpara>Unter AD wird der <emphasis>Prä-Windows 2000 Name</emphasis> (LDAP-Attribut
