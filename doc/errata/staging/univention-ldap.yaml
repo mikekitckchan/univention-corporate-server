@@ -3,11 +3,9 @@ release: "4.4"
 version: [6]
 scope: ucs_4.4-0-errata4.4-6
 src: univention-ldap
-fix: 15.0.1-4A~4.4.0.202011111023
+fix: 15.0.2-1A~4.4.0.202011181823
 desc: |
  This update addresses the following issue(s):
- * Setting of ucr backup/clean/max_age variable for 
-   new installations with default 365.
- * Changing the value of the ldap/database/mdb/maxsize
-   and listener/cache/mdb/maxsize variables to 4 GB
-bug: [51765, 39167]
+ * A new LDAP attribute was added to the mail schema for saving the new
+   forwarding setting.
+bug: [45205]
