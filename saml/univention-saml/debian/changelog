@@ -1,3 +1,9 @@
+univention-saml (7.0.4-1) unstable; urgency=medium
+
+  * Bug #52323: make assertion.lifetime configurable
+
+ -- Florian Best <best@univention.de>  Tue, 24 Nov 2020 18:39:03 +0100
+
 univention-saml (7.0.3-2) unstable; urgency=medium
 
   * Bug #43686: use systemctl calls for univention-directory-listener
