@@ -177,6 +177,8 @@ def test_user_mail_alt_equals_shared_folder_mail_address():
 		)
 		send_mail(recipients=shared_folder_mail, msg=token, debuglevel=DEBUG_LEVEL, messageid=msgid)
 		check_delivery(token, user.mailPrimaryAddress, True)
+		import time
+		time.sleep(60)
 		found = imap_search_mail(
 			messageid=msgid, server=FQDN,
 			imap_user=user.mailPrimaryAddress,
