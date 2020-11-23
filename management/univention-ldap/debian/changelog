@@ -1,9 +1,9 @@
-univention-ldap (15.0.2-1) unstable; urgency=low
+univention-ldap (15.0.1-5) unstable; urgency=low
 
-  * Bug #45205: add LDAP attribute to mail schema for saving the forwarding
-    setting
+  * Bug #45205: revert mail forwarding changes in 4.4-6, will be readded for
+    4.4-7
 
- -- Daniel Troeder <troeder@univention.de>  Wed, 18 Nov 2020 18:09:36 +0100
+ -- Daniel Troeder <troeder@univention.de>  Fri, 20 Nov 2020 09:04:18 +0100
 
 univention-ldap (15.0.1-4) unstable; urgency=medium
 

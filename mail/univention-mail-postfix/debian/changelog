@@ -1,9 +1,9 @@
-univention-mail-postfix (13.0.3-1) unstable; urgency=low
+univention-mail-postfix (13.0.2-3) unstable; urgency=low
 
-  * Bug #45205: add backwards compatible support for using all LDAP query
-    results by using a unionmap
+  * Bug #45205: revert mail forwarding changes in 4.4-6, will be readded for
+    4.4-7
 
- -- Daniel Troeder <troeder@univention.de>  Wed, 18 Nov 2020 18:06:40 +0100
+ -- Daniel Troeder <troeder@univention.de>  Fri, 20 Nov 2020 09:11:12 +0100
 
 univention-mail-postfix (13.0.2-2) unstable; urgency=medium
 
