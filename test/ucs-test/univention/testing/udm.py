@@ -547,6 +547,137 @@ class UCSTestUDM(object):
 
 		return (self.create_object('groups/group', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
 
+	def create_computer_ubuntu(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('computers/ubuntu', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_computer_domaincontroller_backup(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('computers/domaincontroller_backup', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_computer_domaincontroller_master(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('computers/domaincontroller_master', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_computer_domaincontroller_slave(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('computers/domaincontroller_slave', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_computer_ipmanagedclient(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('computers/ipmanagedclient', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_computer_linux(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('computers/linux', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_computer_macos(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('computers/macos', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_computer_memberserver(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('computers/memberserver', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_computer_windows_domain_controller(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('computers/windows_domain_controller', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_computer_windows(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('computers/windows', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_container_dc(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		# TODO: create data
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('containers/dc', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_container_cn(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('containers/cn', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_container_ou(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('containers/ou', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_computer_trustaccount(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name),
+			('password', 'univention')
+		))
+
+		return (self.create_object('computers/trustaccount', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_dhcp_dhcp(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('dhcp/dhcp', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
+	def create_dhcp_host(self, wait_for_replication=True, check_for_drs_replication=True, **kwargs):  # :pylint: disable-msg=W0613
+		# TODO: create data
+		attr = self.__set_module_default_attr(kwargs, (
+			('position', 'cn=computers,%s'%self.LDAP_BASE),
+			('name', uts.random_name)
+		))
+
+		return (self.create_object('dhcp/host', wait_for_replication, check_for_drs_replication, **attr), attr['name'])
+
 	def _set_module_default_attr(self, attributes, defaults):
 		"""
 		Returns the given attributes, extended by every property given in defaults if not yet set.

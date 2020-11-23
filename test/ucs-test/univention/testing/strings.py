@@ -88,6 +88,10 @@ def random_groupname(length=10):
 	return random_name(length)
 
 
+def random_name(length=10):
+	return random_name(length)
+
+
 def random_int(bottom_end=0, top_end=9):
 	return str(random.randint(bottom_end, top_end))
 
