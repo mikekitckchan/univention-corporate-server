@@ -508,10 +508,10 @@ def apply_custom_mapping(ad_mapping):
 	except IOError:
 		# ignore file not found and other file read errors (e.g. permissions)
 		pass
-	except AttributeError as e:
+	except AttributeError as exc:
 		print(
 			"Wrong function signature. Please implement a function"
-			"mapping_hook(ad_connector_mapping) in localmapping.py: %s" % e,
+			"mapping_hook(ad_connector_mapping) in localmapping.py: %s" % (exc,),
 			file=sys.stderr
 		)
 
@@ -522,5 +522,4 @@ def apply_custom_mapping(ad_mapping):
 
 
 ad_mapping = apply_custom_mapping(ad_mapping)
-
 # vim: filetype=python noexpandtab tabstop=4 shiftwidth=4 softtabstop=4
