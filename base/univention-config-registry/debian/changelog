@@ -1,4 +1,4 @@
-univention-config-registry (15.0.4-1) unstable; urgency=medium
+univention-config-registry (15.1.4-1) unstable; urgency=medium
 
   * Bug #52157: migrate scripts to Python 3
 
