@@ -1511,7 +1511,7 @@ Einschränkungen immer nur dort zugewiesen werden.
     Es ist auch möglich Mappings zu verändern oder neue hinzuzufügen.
     Dazu muss eine Datei erstellt werden mit dem Namen
     <filename>/etc/univention/connector/ad/localmapping.py</filename>.
-    In diser Datei sollte die folgende Funktion implementiert werden:
+    In dieser Datei sollte die folgende Funktion implementiert werden:
 
 <programlisting><![CDATA[
 def mapping_hook(ad_mapping):
