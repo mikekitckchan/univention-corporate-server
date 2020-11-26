@@ -105,7 +105,7 @@ umcConfig = mixin({
 }, _customUmcConfig);
 
 // prepare all needed dependencies and evaluate umcConfig settings
-var _deps = ["dojo/parser", "login", "umc/tools", "umc/json!/univention/meta.json", "umc/json!/univention/get/meta", "umc/i18n/tools", "umc/menu/Button", "umc/widgets/LoginButton"];
+var _deps = ["dojo/parser", "login", "umc/tools", "umc/json!/univention/meta.json", "umc/i18n/tools", "umc/menu/Button", "umc/widgets/LoginButton"];
 _deps.push("dojo/domReady!");
 var _ndeps = _deps.length; // save current number of dependencies
 
@@ -136,14 +136,9 @@ dojoConfig = mixin({
 	}],
 	map: {},
 	deps: _deps,
-<<<<<<< HEAD
 	callback: function(parser, login, tools, meta, i18nTools) {
-		mixin(tools._status, meta.result);
-		i18nTools.saveLangCookie(i18nTools.defaultLang());
-=======
-	callback: function(parser, login, tools, meta) {
 		mixin(tools._status, meta);
->>>>>>> 4d11a52154... Bug #52303: meta.json is now accessible via /univention/meta.json; get/meta is only used when logged in and umcConfig.anonymousMeta is false (default)
+		i18nTools.saveLangCookie(i18nTools.defaultLang());
 		if (umcConfig.loadHooks) {
 			require(["umc/hooks!", "umc/piwik"]);
 		}

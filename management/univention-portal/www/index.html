@@ -14,7 +14,8 @@
 			umcConfig = {
 				callback: function() {
 					document.getElementById('portalLoading').remove();
-				}
+				},
+				anonymousMeta: true
 			};
 		</script>
 		<script type="text/javascript" src="/univention/js/config.js"></script>
@@ -29,12 +30,6 @@
 				}
 			};
 			dojoConfig.cacheBust = "v=2.0.2-4";
-			umcConfig.anonymousMeta = true;
-			umcConfig.callback = function() {
-				require(["portal", "umc/widgets/LiveSearch"], function(portal) {
-					portal.start();
-				});
-			};
 		</script>
 		<script type"text/javascript" async src="/univention/js/dojo/dojo.js"></script>
 	</head>
