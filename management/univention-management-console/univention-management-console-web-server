@@ -361,7 +361,7 @@ class QueueRequest(object):
 
 class User(object):
 
-	__slots__ = ('sessionid', 'username', 'password', 'saml', '_time_remaining')
+	__slots__ = ('sessionid', 'username', 'password', 'saml', '_time_remaining', '_timeout_id')
 
 	def __init__(self, sessionid, username, password, saml=None):
 		self.sessionid = sessionid
@@ -369,10 +369,27 @@ class User(object):
 		self.password = password
 		self.saml = saml
 		self._time_remaining = _session_timeout
+		self._timeout_id = None
 		self.reset_timeout()
 
+	def _session_timeout_timer(self):
+		session = UMCP_Dispatcher.sessions.get(self.sessionid)
+		if session and session._requestid2response_queue:
+			self._time_remaining = 1
+			self._timeout_id = notifier.timer_add(1000, self._session_timeout_timer)
+			return False
+
+		CORE.info('session timed out')
+		Ressource.sessions.pop(self.sessionid, None)
+		return False
+
 	def reset_timeout(self):
+		notifier.timer_remove(self._timeout_id)
 		self._time_remaining = self.session_validity
+		self._timeout_id = notifier.timer_add(self.time_remaining * 1000, self._session_timeout_timer)
+
+	def on_logout(self):
+		notifier.timer_remove(self._timeout_id)
 
 	@property
 	def session_validity(self):
@@ -706,7 +723,6 @@ class Ressource(object):
 		olduser = self.get_user()
 
 		user = User(sessionid, username, password, saml or olduser and olduser.saml)
-		self._session_timeout_timer(user)
 
 		self.sessions[sessionid] = user
 		self.set_cookies(('UMCSessionId', sessionid), ('UMCUsername', username))
@@ -727,24 +743,6 @@ class Ressource(object):
 		if user.time_remaining <= 0:
 			return
 		return user
-
-	def _session_timeout_timer(self, user):
-		"""In order to avoid problems when the system time is changed (e.g.,
-		via rdate), we register a timer event that counts down the session
-		timeout second-wise."""
-
-		# count down the remaining time
-		user._time_remaining -= 1
-
-		session = UMCP_Dispatcher.sessions.get(user.sessionid)
-		if user._time_remaining <= 0 and (not session or not session._requestid2response_queue):
-			self._log('info', 'session timed out')
-			self.sessions.pop(user.sessionid, None)
-			return
-
-		# count down the timer second-wise (in order to avoid problems when
-		# changing the system time, e.g. via rdate)
-		notifier.timer_add(1000, lambda: self._session_timeout_timer(user))
 
 
 class CPgeneric(Ressource):
