@@ -316,6 +316,19 @@ class Users(UDMBase):
 
 		return {'username': username, 'lastname': lastname}
 
+	def copy(self, username, username_copy='', lastname='', password=''):
+		if username_copy == '':
+			username_copy = uts.random_string()
+		self.selenium.click_checkbox_of_grid_entry(username)
+		self.selenium.click_text(_('more'))
+		self.selenium.click_text(_('Copy'))
+		self.selenium.enter_input('username', username_copy)
+		self.selenium.enter_input('lastname', lastname or uts.random_string())
+		self.selenium.enter_input('password_1', password or 'univention')
+		self.selenium.enter_input('password_2', password or 'univention')
+		self.selenium.click_text(_('Create user'))
+		return username_copy
+
 	def _get_search_value(self, user):
 		return user['username']
 
