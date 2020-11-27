@@ -18,6 +18,8 @@
  * 		.dijitTitlePaneContentOuter / dijitTitlePaneContentInner - styles for the content outer div
  */
 
+ @require "../HTMLElements.styl"
+
 
 .dijitTitlePane
 	flex: 0 0 auto // needed for udm flex layout
@@ -30,13 +32,14 @@
 
 // TitlePane title
 .dijitTitlePaneTitle
-	padding: 2rem
+	padding: 1.5rem
 	transition: background-color 250ms
 
 	&Hover
 		background-color: rgba(255, 255, 255, 0.04)
 
 .dijitTitlePaneTitleFocus
+	padding: 0.5rem
 	display: flex
 	align-items: center
 
@@ -44,6 +47,7 @@
 		display: none
 
 	.dijitTitlePaneTextNode
+		@extends h2
 		flex: 1 0 auto
 
 	.umcTitlePaneTitleFocus__arrowIcon
@@ -52,13 +56,13 @@
 
 .dijitTitlePaneTitleOpen
 	.umcTitlePaneTitleFocus__arrowIcon
-		transform: rotate(-90deg)
+		transform: rotate(180deg)
 // TitlePane title (end)
 
 
 // TitlePane content
-.dijitTitlePaneContentOuter
-	padding: 0.5rem 2rem 2rem
+.dijitTitlePaneContentInner
+	padding: 0.5rem 2rem 2rem // add padding to inner element so the wipeIn/wipeOut does not jump
 // TitlePane content (end)
 
 

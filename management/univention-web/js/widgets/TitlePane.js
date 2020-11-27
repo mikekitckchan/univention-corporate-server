@@ -45,7 +45,7 @@ define([
 			this.inherited(arguments);
 			var icon = new Icon({
 				'class': 'umcTitlePaneTitleFocus__arrowIcon',
-				iconName: 'chevron-left'
+				iconName: 'chevron-down'
 			});
 			put(this.focusNode, icon.domNode);
 		},
